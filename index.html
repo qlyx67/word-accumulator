@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IELTS Words · 雅思词汇练习</title>
+<title>单词累计器 · Word Accumulator</title>
 <style>
 :root{font-family:system-ui,sans-serif;color:#26234a;background:#f6f5fb;line-height:1.55;--accent:#4a3f9f;--muted:#666480;--border:#dfdcef}
 *{box-sizing:border-box}body{margin:0}main{max-width:840px;margin:auto;padding:clamp(18px,5vw,46px)}header{padding:18px 0 24px}h1{font-size:clamp(32px,7vw,58px);margin:0;letter-spacing:-.045em;line-height:1.15}h2,h3,p{margin:.55em 0}.eyebrow{font-size:.78rem;font-weight:750;letter-spacing:.15em;color:var(--accent)}.muted,footer{color:var(--muted)}nav,.toolbar,.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}nav{margin:0 0 16px}button,input,select{font:inherit;color:inherit;border:1px solid var(--border);border-radius:9px;background:white;padding:9px 12px;min-height:44px}button{cursor:pointer}button:hover:not(:disabled){border-color:var(--accent)}button[aria-pressed=true],.primary{background:var(--accent);color:white;border-color:var(--accent)}:focus-visible{outline:3px solid #5787ac;outline-offset:3px}.card{background:white;border:1px solid var(--border);border-radius:16px;padding:clamp(14px,3vw,24px);margin-top:12px}.toolbar{justify-content:space-between}.toolbar label{display:flex;gap:8px;align-items:center}#search{width:100%;margin:10px 0}.words,.pairs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.words button{text-align:left}.pairs>div{display:grid;gap:7px;align-content:start}.pairs button{overflow-wrap:anywhere}.pairs button:disabled{background:#e6f2ea;color:#376347;opacity:1}.feedback{min-height:1.55em;font-weight:650}.bad{color:#a33827}.good{color:var(--accent)}.paging{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}.tag{font-size:.85rem;color:var(--muted)}dialog{border:1px solid var(--border);border-radius:16px;padding:22px;width:min(92vw,520px);color:inherit}dialog::backdrop{background:#26234a88}footer{margin-top:18px;font-size:.85rem}#answer{flex:1;min-width:130px} [hidden]{display:none!important}
@@ -31,6 +31,7 @@ header{position:relative;padding-top:42px}
 .celebration h2{font-size:2rem;margin:4px 0;color:#49348d}
 .celebration svg{display:block;width:152px;height:85px;margin:auto}
 </style>
+<link rel="stylesheet" href="accumulator.css">
 <script>const words = [];</script>
 <script defer src="words-01.js"></script>
 <script defer src="words-02.js?v=5"></script>
@@ -46,22 +47,44 @@ header{position:relative;padding-top:42px}
 <script defer src="words-12.js?v=5"></script>
 <script defer src="extra-examples.js"></script>
 <script defer src="word-audit.js"></script>
-<script defer src="app-v5.js"></script>
+<script defer src="accumulator.js"></script>
 </head>
 <body><main>
-<header><span class="hero-credit">make by lyxx</span><div class="eyebrow">IELTS VOCABULARY</div><h1>雅思词汇练习</h1><p class="muted">按主题查词，做一轮配对，再试着拼出单词。</p></header>
+<header class="acc-hero">
+  <div><span class="hero-credit">make by lyxx</span><div class="eyebrow">WORD ACCUMULATOR</div><h1>单词累计器</h1><p>把每个单词的两颗星点亮，就让它落进沙漏底部。</p></div>
+  <div class="hero-art">
+    <svg viewBox="0 0 232 174" shape-rendering="crispEdges" aria-hidden="true">
+      <defs>
+        <clipPath id="glass-top"><path d="M45 23H187V48H178V60H165V68H150V77H133V86H99V77H82V68H67V60H54V48H45Z"/></clipPath>
+        <clipPath id="glass-bottom"><path d="M99 87H133V96H150V105H165V113H178V125H187V150H45V125H54V113H67V105H82V96H99Z"/></clipPath>
+        <pattern id="grains" width="16" height="12" patternUnits="userSpaceOnUse"><rect width="16" height="12" fill="#a5682e"/><rect x="3" y="2" width="2" height="2" fill="#e7bb6b"/><rect x="11" y="8" width="2" height="2" fill="#d39548"/></pattern>
+      </defs>
+      <path d="M36 17H196V49H187V62H174V72H158V81H142V92H158V102H174V112H187V124H196V156H36V124H45V112H58V102H74V92H90V81H74V72H58V62H45V49H36Z" fill="#927042"/>
+      <path d="M45 23H187V48H178V60H165V68H150V77H133V96H150V105H165V113H178V125H187V150H45V125H54V113H67V105H82V96H99V77H82V68H67V60H54V48H45Z" fill="#31584c"/>
+      <rect id="sand-top" x="42" y="23" width="148" height="63" fill="url(#grains)" clip-path="url(#glass-top)"/>
+      <rect id="sand-bottom" x="42" y="150" width="148" height="0" fill="url(#grains)" clip-path="url(#glass-bottom)"/>
+      <path d="M24 10H208V17H215V25H17V17H24ZM17 149H215V157H208V164H24V157H17Z" fill="#bd8a49"/>
+      <path d="M24 10H208V14H24ZM24 153H208V157H24Z" fill="#ebc78a"/>
+      <path d="M29 25H36V149H29ZM196 25H203V149H196Z" fill="#bd8a49"/>
+      <path d="M31 32H33V141H31ZM198 32H200V141H198Z" fill="#ebc78a"/>
+    </svg>
+    <div class="hour-label hour-top"><strong id="unmastered-percent">—</strong><span>未掌握</span></div>
+    <div class="hour-label hour-bottom"><strong id="mastered-count">—</strong><span>已掌握单词</span></div>
+  </div>
+</header>
 <nav aria-label="练习模式">
 <button type="button" data-mode="browse" aria-pressed="true">查词</button>
 <button type="button" data-mode="match" aria-pressed="false">配对</button>
 <button type="button" data-mode="spell" aria-pressed="false">拼写</button>
 </nav>
-<div class="toolbar"><label for="topic">主题 <select id="topic"><option value="">全部主题</option></select></label><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div>
+<div class="toolbar"><label for="topic">主题 <select id="topic"><option value="">全部主题</option></select></label><label class="filter-control" for="word-filter">筛选 <select id="word-filter"></select></label><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div>
 <details class="card scope-picker" id="practice-scope" hidden>
 <summary>选择练习分组 <span class="tag" id="scope-summary"></span></summary>
 <p class="muted">可以跨主题勾选多组。未勾选时，使用上方「主题」选定的范围。</p>
 <div class="scope-list" id="scope-list"></div>
 <div class="actions"><button type="button" id="scope-clear">清除所选分组</button></div>
 </details>
+<div class="exercise-layout browsing" id="exercise-layout"><div>
 <section class="card" id="browse" aria-label="查词">
 <label for="search">搜索词汇</label><input id="search" type="search" placeholder="输入英文单词或中文释义">
 <div class="workspace">
@@ -83,6 +106,17 @@ header{position:relative;padding-top:42px}
 </form>
 <p class="feedback" id="spell-feedback" aria-live="polite"></p>
 </section>
+</div>
+<aside class="card wrong-side" id="wrong-side" hidden aria-labelledby="wrong-title">
+<h2 id="wrong-title">错词本 <span class="tag" id="wrong-count"></span></h2>
+<p class="muted" id="wrong-empty">当前范围还没有错词。答错的词会自动记在这里。</p>
+<div class="wrong-actions">
+<button type="button" data-review="match">错词配对</button>
+<button type="button" data-review="spell">错词拼写</button>
+</div>
+<ol class="wrong-list" id="wrong-list"></ol>
+</aside></div>
+<p class="save-note" id="save-note">进度只保存在当前浏览器。换设备、换浏览器或清除网站数据后，需要重新开始。</p>
 <dialog class="celebration" id="match-celebration" aria-labelledby="celebration-title">
 <div class="celebration-inner">
 <svg viewBox="0 0 152 85" aria-hidden="true">
