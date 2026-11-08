@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IELTS Words · 雅思词汇练习</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#26234a;background:#f6f5fb;line-height:1.55;--accent:#4a3f9f;--muted:#666480;--border:#dfdcef}
+*{box-sizing:border-box}body{margin:0}main{max-width:840px;margin:auto;padding:clamp(18px,5vw,46px)}header{padding:18px 0 24px}h1{font-size:clamp(32px,7vw,58px);margin:0;letter-spacing:-.045em;line-height:1.15}h2,h3,p{margin:.55em 0}.eyebrow{font-size:.78rem;font-weight:750;letter-spacing:.15em;color:var(--accent)}.muted,footer{color:var(--muted)}nav,.toolbar,.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}nav{margin:0 0 16px}button,input,select{font:inherit;color:inherit;border:1px solid var(--border);border-radius:9px;background:white;padding:9px 12px;min-height:44px}button{cursor:pointer}button:hover:not(:disabled){border-color:var(--accent)}button[aria-pressed=true],.primary{background:var(--accent);color:white;border-color:var(--accent)}:focus-visible{outline:3px solid #5787ac;outline-offset:3px}.card{background:white;border:1px solid var(--border);border-radius:16px;padding:clamp(14px,3vw,24px);margin-top:12px}.toolbar{justify-content:space-between}.toolbar label{display:flex;gap:8px;align-items:center}#search{width:100%;margin:10px 0}.words,.pairs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.words button{text-align:left}.pairs>div{display:grid;gap:7px;align-content:start}.pairs button{overflow-wrap:anywhere}.pairs button:disabled{background:#e6f2ea;color:#376347;opacity:1}.feedback{min-height:1.55em;font-weight:650}.bad{color:#a33827}.good{color:var(--accent)}.paging{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}.tag{font-size:.85rem;color:var(--muted)}dialog{border:1px solid var(--border);border-radius:16px;padding:22px;width:min(92vw,520px);color:inherit}dialog::backdrop{background:#26234a88}footer{margin-top:18px;font-size:.85rem}#answer{flex:1;min-width:130px} [hidden]{display:none!important}
+main{max-width:1100px}.eyebrow{color:#5748b1}header{background:linear-gradient(115deg,#eeedfe,#f9f7ff);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:16px}nav button{font-weight:650}.workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}.word-pane{min-width:0}.words{display:grid;grid-template-columns:1fr;overflow:auto;max-height:58vh;padding:3px;gap:6px}.words button{display:flex;justify-content:space-between;gap:6px;overflow-wrap:anywhere}.word-stars{color:#8a650d;white-space:nowrap}.detail{margin-top:0;background:#f9f8ff;overflow-wrap:anywhere;min-height:150px}.detail h2{font-size:clamp(19px,4vw,32px)}#answer{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:text}.spell-input{position:relative;display:block;min-height:44px;padding:5px;border-radius:8px}.spell-input:focus-within{outline:2px solid var(--accent)}.letters{display:flex;flex-wrap:wrap;gap:4px;font:700 clamp(13px,3vw,20px)/1.6 ui-monospace,monospace}.letter{min-width:1.15em;text-align:center;border-bottom:2px solid var(--border)}.letter.space{border:0;min-width:.5em}.letter.good{background:#e6f2ea;color:#265238}.letter.bad{background:#ffe9e5;color:#a33827}.answer-label{margin-top:8px;font-size:.87rem}.spell-input+.actions{margin-top:14px}@media(max-width:530px){main{padding:12px}.card{padding:11px}.workspace{gap:7px;grid-template-columns:minmax(0,1fr) minmax(0,1.04fr)}.words button{padding:6px;display:block}.word-stars{display:block;font-size:.75rem}.detail{padding:9px}.words{max-height:54vh}}
+.workspace{grid-template-columns:minmax(0,2.35fr) minmax(0,1fr)}
+.words{grid-template-columns:repeat(auto-fill,minmax(min(100%,105px),1fr));align-content:start}
+.words button{display:grid;align-content:center;justify-items:start;gap:2px;padding:6px 8px;min-height:48px;font-size:.88rem;line-height:1.2}
+.words button .word-stars{font-size:.74rem}
+.words button[aria-pressed="true"] .word-stars{color:#fff2aa}
+@media(max-width:530px){.workspace{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}.words{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.words button{padding:5px;min-height:46px;font-size:.78rem}}
+.word-group-title{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:10px 0 2px;font-size:.86rem;color:var(--accent)}
+.word-group-title::after{content:'';flex:1;border-top:1px solid var(--border)}
+.scope-picker summary{cursor:pointer;font-weight:650}
+.scope-list{max-height:42vh;overflow:auto;margin:12px 0}
+.scope-list fieldset{border:1px solid var(--border);border-radius:9px;margin:0 0 10px;padding:6px 10px}
+.scope-list legend{font-weight:650}
+.scope-options{display:flex;flex-wrap:wrap;gap:6px 12px}
+.scope-options label{display:inline-flex;align-items:center;gap:4px;min-height:36px}
+.scope-options input{min-height:0;accent-color:var(--accent)}
+header{position:relative;padding-top:42px}
+.hero-credit{position:absolute;top:12px;right:16px;color:#5748a0;font-size:.8rem;font-weight:650;letter-spacing:.04em}
+.celebration{padding:0;text-align:center;box-shadow:0 18px 65px #26234a44}
+.celebration::backdrop{background:#26234a66}
+.celebration-inner{padding:20px 24px 24px;background:linear-gradient(145deg,#fff0f6,#f2edff 75%,#fff7e2)}
+.celebration h2{font-size:2rem;margin:4px 0;color:#49348d}
+.celebration svg{display:block;width:152px;height:85px;margin:auto}
+</style>
+<script>const words = [];</script>
+<script defer src="words-01.js"></script>
+<script defer src="words-02.js?v=5"></script>
+<script defer src="words-03.js?v=5"></script>
+<script defer src="words-04.js"></script>
+<script defer src="words-05.js"></script>
+<script defer src="words-06.js"></script>
+<script defer src="words-07.js"></script>
+<script defer src="words-08.js?v=5"></script>
+<script defer src="words-09.js"></script>
+<script defer src="words-10.js"></script>
+<script defer src="words-11.js"></script>
+<script defer src="words-12.js?v=5"></script>
+<script defer src="extra-examples.js"></script>
+<script defer src="word-audit.js"></script>
+<script defer src="app-v5.js"></script>
+</head>
+<body><main>
+<header><span class="hero-credit">make by lyxx</span><div class="eyebrow">IELTS VOCABULARY</div><h1>雅思词汇练习</h1><p class="muted">按主题查词，做一轮配对，再试着拼出单词。</p></header>
+<nav aria-label="练习模式">
+<button type="button" data-mode="browse" aria-pressed="true">查词</button>
+<button type="button" data-mode="match" aria-pressed="false">配对</button>
+<button type="button" data-mode="spell" aria-pressed="false">拼写</button>
+</nav>
+<div class="toolbar"><label for="topic">主题 <select id="topic"><option value="">全部主题</option></select></label><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div>
+<details class="card scope-picker" id="practice-scope" hidden>
+<summary>选择练习分组 <span class="tag" id="scope-summary"></span></summary>
+<p class="muted">可以跨主题勾选多组。未勾选时，使用上方「主题」选定的范围。</p>
+<div class="scope-list" id="scope-list"></div>
+<div class="actions"><button type="button" id="scope-clear">清除所选分组</button></div>
+</details>
+<section class="card" id="browse" aria-label="查词">
+<label for="search">搜索词汇</label><input id="search" type="search" placeholder="输入英文单词或中文释义">
+<div class="workspace">
+<div class="word-pane"><div class="words" id="word-list"></div><p id="empty" hidden>没有找到符合条件的词。</p></div>
+<aside class="card detail" aria-label="词条详情"><h2 id="detail-word">选择一个单词</h2><p class="tag" id="detail-pos"></p><p id="detail-meaning"></p><p class="word-stars" id="detail-stars"></p><div id="example-block" hidden><h3>例句</h3><p lang="en" id="detail-example"></p><a id="example-source" class="tag" hidden></a></div></aside>
+</div>
+</section>
+<section class="card" id="match" hidden aria-label="配对">
+<h2>英汉配对</h2><p class="muted">先选英文，再选对应的中文。</p>
+<div class="pairs"><div id="english" aria-label="英文选项"></div><div id="chinese" aria-label="中文选项"></div></div>
+<p class="feedback" id="match-feedback" aria-live="polite"></p><button class="primary" id="new-round">换一组</button>
+</section>
+<section class="card" id="spell" hidden aria-label="拼写">
+<h2>看释义拼单词</h2><p id="spell-clue"></p><p class="muted" id="spell-hint"></p>
+<form id="spell-form">
+<label class="spell-input"><span class="letters" id="typed-letters" aria-hidden="true"></span><input id="answer" aria-label="英文拼写" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<div id="correction" hidden><p class="answer-label">正确拼写（逐字对照）</p><div class="letters" id="correct-letters"></div></div>
+<div class="actions"><button class="primary" id="submit">提交</button></div>
+</form>
+<p class="feedback" id="spell-feedback" aria-live="polite"></p>
+</section>
+<dialog class="celebration" id="match-celebration" aria-labelledby="celebration-title">
+<div class="celebration-inner">
+<svg viewBox="0 0 152 85" aria-hidden="true">
+  <path d="M76 71C45 53 39 40 48 29c8-10 21-8 28 2 7-10 20-12 28-2 9 11 3 24-28 42Z" fill="#f18ab7"/>
+  <path d="m23 18 3 8 8 3-8 3-3 8-3-8-8-3 8-3Zm104 22 3 8 8 3-8 3-3 8-3-8-8-3 8-3ZM103 4l2 5 5 2-5 2-2 5-2-5-5-2 5-2Z" fill="#f0b83b"/>
+  <circle cx="39" cy="62" r="3" fill="#9983dd"/><circle cx="120" cy="20" r="3" fill="#9983dd"/>
+  <path d="m12 55 7 3m118-32 5-5M59 9l4 6" stroke="#9983dd" stroke-width="3" stroke-linecap="round"/>
+</svg>
+<h2 id="celebration-title">你太棒啦！</h2>
+<p>这一轮全部一次配对正确。</p>
+<form method="dialog"><button autofocus>继续练习</button></form>
+<p class="tag">点卡片外的空白处也可以关闭</p>
+</div>
+</dialog>
+<footer>词头按雅思词汇 PDF 的 22 个主题整理。扩充释义来自 <a href="https://github.com/skywind3000/ECDICT">ECDICT</a>（<a href="ECDICT-LICENSE.txt">MIT</a>），部分例句来自 <a href="https://tatoeba.org/">Tatoeba</a>（<a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a>）。星星保存在当前浏览器。</footer>
+</main></body></html>
