@@ -4,96 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>单词累积器 · Word Accumulator</title>
-<style>
-:root{font-family:system-ui,sans-serif;color:#26234a;background:#f6f5fb;line-height:1.55;--accent:#4a3f9f;--muted:#666480;--border:#dfdcef}
-*{box-sizing:border-box}body{margin:0}main{max-width:840px;margin:auto;padding:clamp(18px,5vw,46px)}header{padding:18px 0 24px}h1{font-size:clamp(32px,7vw,58px);margin:0;letter-spacing:-.045em;line-height:1.15}h2,h3,p{margin:.55em 0}.eyebrow{font-size:.78rem;font-weight:750;letter-spacing:.15em;color:var(--accent)}.muted,footer{color:var(--muted)}nav,.toolbar,.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}nav{margin:0 0 16px}button,input,select{font:inherit;color:inherit;border:1px solid var(--border);border-radius:9px;background:white;padding:9px 12px;min-height:44px}button{cursor:pointer}button:hover:not(:disabled){border-color:var(--accent)}button[aria-pressed=true],.primary{background:var(--accent);color:white;border-color:var(--accent)}:focus-visible{outline:3px solid #5787ac;outline-offset:3px}.card{background:white;border:1px solid var(--border);border-radius:16px;padding:clamp(14px,3vw,24px);margin-top:12px}.toolbar{justify-content:space-between}.toolbar label{display:flex;gap:8px;align-items:center}#search{width:100%;margin:10px 0}.words,.pairs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.words button{text-align:left}.pairs>div{display:grid;gap:7px;align-content:start}.pairs button{overflow-wrap:anywhere}.pairs button:disabled{background:#e6f2ea;color:#376347;opacity:1}.feedback{min-height:1.55em;font-weight:650}.bad{color:#a33827}.good{color:var(--accent)}.paging{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}.tag{font-size:.85rem;color:var(--muted)}dialog{border:1px solid var(--border);border-radius:16px;padding:22px;width:min(92vw,520px);color:inherit}dialog::backdrop{background:#26234a88}footer{margin-top:18px;font-size:.85rem}#answer{flex:1;min-width:130px} [hidden]{display:none!important}
-main{max-width:1100px}.eyebrow{color:#5748b1}header{background:linear-gradient(115deg,#eeedfe,#f9f7ff);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:16px}nav button{font-weight:650}.workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}.word-pane{min-width:0}.words{display:grid;grid-template-columns:1fr;overflow:auto;max-height:58vh;padding:3px;gap:6px}.words button{display:flex;justify-content:space-between;gap:6px;overflow-wrap:anywhere}.word-stars{color:#8a650d;white-space:nowrap}.detail{margin-top:0;background:#f9f8ff;overflow-wrap:anywhere;min-height:150px}.detail h2{font-size:clamp(19px,4vw,32px)}#answer{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:text}.spell-input{position:relative;display:block;min-height:44px;padding:5px;border-radius:8px}.spell-input:focus-within{outline:2px solid var(--accent)}.letters{display:flex;flex-wrap:wrap;gap:4px;font:700 clamp(13px,3vw,20px)/1.6 ui-monospace,monospace}.letter{min-width:1.15em;text-align:center;border-bottom:2px solid var(--border)}.letter.space{border:0;min-width:.5em}.letter.good{background:#e6f2ea;color:#265238}.letter.bad{background:#ffe9e5;color:#a33827}.answer-label{margin-top:8px;font-size:.87rem}.spell-input+.actions{margin-top:14px}@media(max-width:530px){main{padding:12px}.card{padding:11px}.workspace{gap:7px;grid-template-columns:minmax(0,1fr) minmax(0,1.04fr)}.words button{padding:6px;display:block}.word-stars{display:block;font-size:.75rem}.detail{padding:9px}.words{max-height:54vh}}
-.workspace{grid-template-columns:minmax(0,2.35fr) minmax(0,1fr)}
-.words{grid-template-columns:repeat(auto-fill,minmax(min(100%,105px),1fr));align-content:start}
-.words button{display:grid;align-content:center;justify-items:start;gap:2px;padding:6px 8px;min-height:48px;font-size:.88rem;line-height:1.2}
-.words button .word-stars{font-size:.74rem}
-.words button[aria-pressed="true"] .word-stars{color:#fff2aa}
-@media(max-width:530px){.workspace{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}.words{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.words button{padding:5px;min-height:46px;font-size:.78rem}}
-.word-group-title{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:10px 0 2px;font-size:.86rem;color:var(--accent)}
-.word-group-title::after{content:'';flex:1;border-top:1px solid var(--border)}
-.scope-picker summary{cursor:pointer;font-weight:650}
-.scope-list{max-height:42vh;overflow:auto;margin:12px 0}
-.scope-list fieldset{border:1px solid var(--border);border-radius:9px;margin:0 0 10px;padding:6px 10px}
-.scope-list legend{font-weight:650}
-.scope-options{display:flex;flex-wrap:wrap;gap:6px 12px}
-.scope-options label{display:inline-flex;align-items:center;gap:4px;min-height:36px}
-.scope-options input{min-height:0;accent-color:var(--accent)}
-header{position:relative;padding-top:42px}
-.hero-credit{position:absolute;top:12px;right:16px;color:#5748a0;font-size:.8rem;font-weight:650;letter-spacing:.04em}
-.celebration{padding:0;text-align:center;box-shadow:0 18px 65px #26234a44}
-.celebration::backdrop{background:#26234a66}
-.celebration-inner{padding:20px 24px 24px;background:linear-gradient(145deg,#fff0f6,#f2edff 75%,#fff7e2)}
-.celebration h2{font-size:2rem;margin:4px 0;color:#49348d}
-.celebration svg{display:block;width:152px;height:85px;margin:auto}
-</style>
-<style>
-:root{color-scheme:dark;color:#d4e6dd;background:#1d231f;--accent:#8fc6b4;--muted:#a1b6aa;--border:#36423b;--panel:#131614;--raised:#212823;--selected:#24614f;--gold:#d6ae62}
-body{background:radial-gradient(ellipse at 75% 0,#212b26,transparent 70%)}
-main{max-width:1160px;padding:clamp(12px,4vw,40px)}
-header.acc-hero{position:relative;display:grid;grid-template-columns:1fr minmax(220px,36%);align-items:center;gap:20px;min-height:235px;padding:32px 36px;border:1px solid #345d4f;border-radius:23px;background:#15392f;color:#fbf8e9}
-.acc-hero h1{font-size:clamp(36px,6vw,68px);letter-spacing:.01em}
-.acc-hero .eyebrow,.acc-hero .hero-credit{color:#e5c58e}
-.acc-hero .eyebrow{margin-bottom:10px}
-.acc-hero p{color:#dbe9df;margin:.6rem 0}
-.hero-art{position:relative;width:min(100%,232px);margin:auto;aspect-ratio:232/174}
-.hero-art svg{display:block;width:100%;height:100%}
-.hour-label{position:absolute;left:0;right:0;text-align:center;color:#fff4d7;line-height:1.05;font-weight:750;text-shadow:0 1px 3px #102b23}
-.hour-label span{display:block;font-size:.69rem;font-weight:600;margin-top:3px}
-.hour-top{top:22%;font-size:clamp(1rem,3.6vw,1.6rem)}
-.hour-bottom{top:65%;font-size:clamp(1rem,3.6vw,1.6rem)}
-nav{border:1px solid var(--border);padding:5px;border-radius:13px;background:#1b201d}
-nav button{min-width:84px;border:0;background:transparent}
-.card{border-radius:15px;background:var(--panel);box-shadow:0 3px 10px #0003}
-.detail{background:var(--raised)}
-.exercise-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,30%);align-items:start;gap:12px}
-.exercise-layout.browsing{display:block}
-.wrong-side{background:var(--raised)}
-.wrong-side h2{font-size:1.18rem;margin-top:0}
-.wrong-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.wrong-actions button{padding:5px 7px;font-size:.86rem}
-.wrong-actions button:disabled{cursor:default;opacity:.55}
-.wrong-list{max-height:38vh;overflow:auto;margin:12px 0 0;padding:0;list-style:none}
-.wrong-list li{border-top:1px solid var(--border);padding:6px 0;overflow-wrap:anywhere}
-.wrong-list strong,.wrong-list small{display:block}
-.toolbar .filter-control{margin-right:auto}
-.save-note{margin-top:13px;color:var(--muted);font-size:.83rem}
-@media(max-width:700px){.exercise-layout{grid-template-columns:1fr}.wrong-list{max-height:210px}header.acc-hero{grid-template-columns:minmax(0,1fr) minmax(118px,39%);gap:8px;padding:30px 14px 16px;min-height:0}.acc-hero h1{font-size:clamp(27px,6vw,42px)}.acc-hero p{font-size:.85rem}.hour-label span{font-size:.6rem}}
-.exercise-layout{grid-template-columns:minmax(0,1fr) minmax(295px,39%)}
-.wrong-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-.wrong-columns section+section{border-left:1px solid var(--border);padding-left:10px}
-.wrong-columns h3{margin:0;font-size:.95rem}
-.wrong-columns .muted{font-size:.8rem}
-.wrong-actions{grid-template-columns:1fr}
-.wrong-columns button{width:100%;min-height:38px;padding:5px 7px;font-size:.82rem;overflow-wrap:anywhere}
-.sentence-list button{background:transparent;text-align:left}
-.quiz-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.quiz-options button{overflow-wrap:anywhere}
-.quiz-correct{background:#214536;color:#d3f5df;border-color:#6da580}
-.quiz-incorrect{background:#4b2926;color:#ffd7cc;border-color:#c17c72}
-.quiz-explanation{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:10px 13px;margin:8px 0 12px}
-#quiz-prompt{font-size:1.15rem;font-weight:650;margin:16px 0}
-@media(max-width:780px){.exercise-layout{grid-template-columns:1fr}}
 
-button,input,select{background:var(--panel)}
-input::placeholder{color:#9aaba2}
-button[aria-pressed=true],.primary{background:var(--selected);border-color:#497d6b;color:#f0faf5}
-.detail,.wrong-side{background:var(--raised)}
-.word-stars{color:var(--gold)}
-:focus-visible{outline-color:#e1be79}
-a{color:#a4d7c5}
-.good{color:#a8d9bc}
-.bad{color:#ffac9d}
-.pairs button:disabled,.letter.good{background:#214536;color:#d3f5df}
-.letter.bad{background:#4b2926;color:#ffd7cc}
-.celebration-inner{background:linear-gradient(145deg,#3e2c35,#233b31 75%,#3a3222)}
-.celebration h2{color:#f1c587}
-.celebration::backdrop{background:#080e0bd0}
-</style>
 <script>const words = [];</script>
 <script defer src="words-01.js"></script>
 <script defer src="words-02.js?v=5"></script>
@@ -109,14 +20,32 @@ a{color:#a4d7c5}
 <script defer src="words-12.js?v=5"></script>
 <script defer src="extra-examples.js"></script>
 <script defer src="word-audit.js"></script>
-<script defer src="accumulator.js?v=stars1"></script>
+<script defer src="accumulator.js?v=studio2"></script>
 <script defer src="sentence-quiz.js"></script>
-<link rel="stylesheet" href="star-study.css">
-<script defer src="star-study.js"></script>
+<link rel="stylesheet" href="star-study.css?v=studio2">
+<script defer src="pronunciation.js?v=1"></script>
+<script defer src="pronunciation-audit.js?v=1"></script>
+<script defer src="studio-audio.js?v=1"></script>
+<script defer src="star-study.js?v=studio2"></script>
 </head>
-<body><main>
+<body><div class="studio-shell">
+<aside class="studio-rail" aria-label="导航">
+  <div class="studio-brand"><span class="brand-mark" aria-hidden="true">✦</span><div><strong>单词累积器</strong><small>WORD ACCUMULATOR</small></div></div>
+  <div class="rail-label">学习工作台</div>
+  <nav aria-label="练习模式">
+    <button type="button" data-mode="study" aria-pressed="true"><span aria-hidden="true">◇</span> 背词卡</button>
+    <button type="button" data-mode="browse" aria-pressed="false"><span aria-hidden="true">⌕</span> 查词</button>
+    <button type="button" data-mode="match" aria-pressed="false"><span aria-hidden="true">✧</span> 连星配对</button>
+    <button type="button" data-mode="spell" aria-pressed="false"><span aria-hidden="true">Aa</span> 拼写</button>
+    <button type="button" data-mode="quiz" aria-pressed="false"><span aria-hidden="true">≡</span> 句子选择</button>
+  </nav>
+  <div class="rail-credit">make by lyxx</div>
+</aside>
+<main>
+<div class="studio-top"><span>学习工作台 <b>/</b> <strong id="studio-mode">背词卡</strong></span><button id="help-open" type="button">? 操作说明</button></div>
 <header class="acc-hero">
-  <div><span class="hero-credit">make by lyxx</span><div class="eyebrow">WORD ACCUMULATOR</div><h1>单词累积器</h1><p>把每个单词的两颗星点亮，就让它落进沙漏底部。</p></div>
+  <div class="hero-copy"><div class="eyebrow" id="studio-kicker">01 / FLASHCARDS</div><h1 id="studio-title">背词卡</h1><p id="studio-description">选一个词组，先回忆词义，再翻卡确认。</p></div>
+  <div class="hero-progress"><span class="eyebrow">全部词汇进度</span><div class="hero-metrics"><div><strong id="mastered-count">—</strong><span>已掌握</span></div><div><strong id="unmastered-percent">—</strong><span>待掌握</span></div></div></div>
   <div class="hero-art">
     <svg viewBox="0 0 232 174" shape-rendering="crispEdges" aria-hidden="true">
       <defs>
@@ -134,20 +63,12 @@ a{color:#a4d7c5}
       <path d="M29 25H36V149H29ZM196 25H203V149H196Z" fill="#bd8a49"/>
       <path d="M31 32H33V141H31ZM198 32H200V141H198Z" fill="#ebc78a"/>
     </svg>
-    <div class="hour-label hour-top"><strong id="unmastered-percent">—</strong><span>未掌握</span></div>
-    <div class="hour-label hour-bottom"><strong id="mastered-count">—</strong><span>已掌握单词</span></div>
   </div>
 </header>
-<nav aria-label="练习模式">
-<button type="button" data-mode="study" aria-pressed="true">背词卡</button>
-<button type="button" data-mode="browse" aria-pressed="false">查词</button>
-<button type="button" data-mode="match" aria-pressed="false">配对</button>
-<button type="button" data-mode="spell" aria-pressed="false">拼写</button>
-<button type="button" data-mode="quiz" aria-pressed="false">句子选择</button>
-</nav>
+
 <div class="toolbar" id="word-toolbar" hidden><label for="topic">主题 <select id="topic"><option value="">全部主题</option></select></label><label class="filter-control" for="word-filter">筛选 <select id="word-filter"></select></label><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div>
 <details class="card scope-picker" id="practice-scope" hidden>
-<summary>选择练习分组 <span class="tag" id="scope-summary"></span></summary>
+<summary>练习范围 <span class="scope-chip" id="scope-summary"></span></summary>
 <p class="muted">可以跨主题勾选多组。未勾选时，使用上方「主题」选定的范围。</p>
 <div class="scope-list" id="scope-list"></div>
 <div class="actions"><button type="button" id="scope-clear">清除所选分组</button></div>
@@ -155,34 +76,40 @@ a{color:#a4d7c5}
 <div class="exercise-layout browsing" id="exercise-layout"><div>
 <section id="study" class="star-study" aria-label="背词卡">
 <div class="card study-card">
-<div class="study-meta"><span class="eyebrow">QUICK STUDY · 快捷词卡</span><span id="study-count" class="tag" aria-live="polite"></span></div>
-<button type="button" id="study-flip" aria-controls="study-details" aria-expanded="false"><strong id="study-word" lang="en"></strong><span class="tag" id="study-hint"></span></button>
-<button type="button" id="study-speak">🔊 发音</button>
-<div id="study-details" hidden><p id="study-meaning"></p><p id="study-example" lang="en"></p><a id="study-source" class="tag" hidden></a></div>
-<div class="study-ratings"><button type="button" data-rating="1">1 · 不会</button><button type="button" data-rating="2">2 · 有点印象</button><button type="button" data-rating="3">3 · 认识</button></div>
-<div class="actions"><button type="button" id="study-restart">开启下一轮词卡</button><button type="button" class="primary" id="study-match">去本组连星配对</button></div>
+  <div class="study-meta"><span class="eyebrow" id="study-batch">本组词卡</span><span id="study-count" class="tag" aria-live="polite"></span></div>
+  <progress id="study-progress" aria-label="本组词卡进度" max="30" value="0"></progress>
+  <div class="flashcard-face" id="study-face">
+    <div class="flashcard-top"><span id="study-index" class="eyebrow">WORD CARD</span><button type="button" id="study-speak" aria-label="播放英语发音">◖)) 发音</button></div>
+    <button type="button" id="study-flip" aria-controls="study-details" aria-expanded="false"><strong id="study-word" lang="en"></strong><span class="tag" id="study-hint"></span></button>
+    <div id="study-details" hidden><p id="study-meaning"></p><p id="study-example" lang="en"></p><a id="study-source" class="tag" hidden></a></div>
+    <span id="speech-status" class="tag" role="status"></span>
+  </div>
+  <div class="study-ratings" aria-label="自评"><button type="button" data-rating="1"><kbd>1</kbd> 不会</button><button type="button" data-rating="2"><kbd>2</kbd> 有点印象</button><button type="button" data-rating="3"><kbd>3</kbd> 认识</button></div>
+  <div class="actions study-actions"><button type="button" id="study-restart" hidden>再背本组</button><button type="button" class="primary" id="study-match">练习本组配对 <span aria-hidden="true">↗</span></button></div>
 </div>
-<div class="card">
-<div class="map-head"><span class="eyebrow">CONSTELLATION · 词汇星图</span><span id="map-count" class="tag"></span></div>
-<label for="map-group">学习分组</label> <select id="map-group"></select>
-<div id="constellation" aria-label="本组单词星图"></div>
-<p class="tag">点任意星点背这个词。配对、拼写各得一颗星后，星点就会亮起来。</p>
-</div>
+<aside class="card map-panel">
+  <div class="map-head"><div><span class="eyebrow">CONSTELLATION</span><h2>本组星图</h2></div><span id="map-count" class="tag"></span></div>
+  <label for="map-group">学习分组</label><select id="map-group"></select>
+  <div class="map-field"><svg viewBox="0 0 280 180" preserveAspectRatio="none" aria-hidden="true"><path d="M26 20 70 50 113 29 168 58 210 22 254 43M20 89 63 111 109 78 163 99 209 84 260 105M24 152 62 134 109 163 158 134 213 158 256 139M70 50 63 111 62 134M168 58 163 99 158 134M210 22 209 84 213 158"/></svg><div id="constellation" aria-label="本组单词星图"></div></div>
+  <p class="tag">点星点可直接背该词。配对、拼写各得一星后，星点会点亮。</p>
+</aside>
 </section>
 <section class="card" id="browse" aria-label="查词" hidden>
-<label for="search">搜索词汇</label><input id="search" type="search" placeholder="输入英文单词或中文释义">
+<div class="panel-heading"><span class="eyebrow">WORD INDEX</span><h2>搜索词汇</h2></div><label class="sr-only" for="search">搜索词汇</label><input id="search" type="search" placeholder="输入英文单词或中文释义">
 <div class="workspace">
 <div class="word-pane"><div class="words" id="word-list"></div><p id="empty" hidden>没有找到符合条件的词。</p></div>
 <aside class="card detail" aria-label="词条详情"><h2 id="detail-word">选择一个单词</h2><p class="tag" id="detail-pos"></p><p id="detail-meaning"></p><p class="word-stars" id="detail-stars"></p><div id="example-block" hidden><h3>例句</h3><p lang="en" id="detail-example"></p><a id="example-source" class="tag" hidden></a></div></aside>
 </div>
 </section>
 <section class="card" id="match" hidden aria-label="配对">
-<h2>英汉配对</h2><p class="muted">先选英文，再选对应的中文。</p>
+<div class="panel-heading match-heading"><div><span class="eyebrow">MATCH ROUND</span><h2>英汉配对</h2></div><span class="scope-chip" id="match-range"></span></div>
+<p class="muted">先选英文，再选对应的中文。</p>
+<div class="pair-labels"><span>EN · 单词</span><span>中 · 释义</span></div>
 <div class="pairs"><div id="english" aria-label="英文选项"></div><div id="chinese" aria-label="中文选项"></div></div>
-<p class="feedback" id="match-feedback" aria-live="polite"></p><button class="primary" id="new-round">换一组</button>
+<p class="feedback" id="match-feedback" aria-live="polite"></p><button class="primary" id="new-round">换一轮</button>
 </section>
 <section class="card" id="spell" hidden aria-label="拼写">
-<h2>看释义拼单词</h2><p id="spell-clue"></p><p class="muted" id="spell-hint"></p>
+<div class="panel-heading"><span class="eyebrow">SPELLING</span><h2>看释义拼单词</h2></div><p id="spell-clue"></p><p class="muted" id="spell-hint"></p>
 <form id="spell-form">
 <label class="spell-input"><span class="letters" id="typed-letters" aria-hidden="true"></span><input id="answer" aria-label="英文拼写" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
 <div id="correction" hidden><p class="answer-label">正确拼写（逐字对照）</p><div class="letters" id="correct-letters"></div></div>
@@ -191,7 +118,7 @@ a{color:#a4d7c5}
 <p class="feedback" id="spell-feedback" aria-live="polite"></p>
 </section>
 <section class="card" id="quiz" hidden aria-label="句子选择">
-<h2>句子选词</h2><p class="tag" id="quiz-mode"></p>
+<div class="panel-heading"><span class="eyebrow">IN CONTEXT</span><h2>句子选词</h2></div><p class="tag" id="quiz-mode"></p>
 <p id="quiz-prompt" lang="en"></p>
 <div id="quiz-options" class="quiz-options"></div>
 <p class="feedback" id="quiz-feedback" aria-live="polite"></p>
@@ -214,11 +141,12 @@ a{color:#a4d7c5}
 <button type="button" id="sentence-review">重做句子错题</button>
 <ol class="wrong-list sentence-list" id="sentence-list"></ol></section></div>
 </aside></div>
-<details class="card study-help"><summary>操作说明 · 触屏与键盘</summary>
-<p>背词卡：点卡片或按空格展开释义。点按钮或按 1 / 2 / 3 自评。不会的词隔几张再出现，有点印象的排到本轮末尾，每个词本轮最多追加一次。认识的词直接进入下一张。</p>
-<p>发音：点「发音」，使用当前设备提供的英语语音。连星配对：先点英文、再点释义，也可用 Tab 和 Enter 操作按钮。拼写：输入后按 Enter 提交，再按一次进下一题。句子选择：点选项立即看解析。</p>
+<dialog class="studio-help" id="studio-help" aria-labelledby="help-title">
+<div class="panel-heading"><span class="eyebrow">QUICK GUIDE</span><h2 id="help-title">操作说明 · 触屏与键盘</h2></div>
+<p>背词卡：每组最多 30 词。点卡片或按空格看释义，也可以直接点按钮或按 1 / 2 / 3 自评。不会的词稍后再出现，有点印象的排到队尾，每词最多追加一次。</p>
+<p>发音：点「发音」播放英语语音。连星配对：每轮最多 10 对，先点英文、再点释义，也可用 Tab 和 Enter 操作按钮。拼写：输入后按 Enter 提交，再按一次进下一题。句子选择：点选项立即看解析。</p>
 <p>星图：点星点可打开对应词卡。自评只改变复习顺序，配对和拼写都答对才算掌握。词卡位置保存在当前浏览器。</p>
-</details>
+<form method="dialog"><button class="primary">开始学习</button></form></dialog>
 <p class="save-note" id="save-note">进度只保存在当前浏览器。换设备、换浏览器或清除网站数据后，需要重新开始。</p>
 <dialog class="celebration" id="match-celebration" aria-labelledby="celebration-title">
 <div class="celebration-inner">
@@ -231,4 +159,4 @@ a{color:#a4d7c5}
 </div>
 </dialog>
 <footer>词头按雅思词汇 PDF 的 22 个主题整理。扩充释义来自 <a href="https://github.com/skywind3000/ECDICT">ECDICT</a>（<a href="ECDICT-LICENSE.txt">MIT</a>），部分例句来自 <a href="https://tatoeba.org/">Tatoeba</a>（<a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a>）。星星保存在当前浏览器。</footer>
-</main></body></html>
+</main></div></body></html>

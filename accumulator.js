@@ -298,6 +298,7 @@ function startMatch() {
     round.push(word);
     if (round.length === 10) break;
   }
+  byId('match-range').textContent = scopeLabel(scopes.match) + ' · 本轮 ' + round.length + ' 对';
   selected = null;
   matched = new Set();
   const mistakes = new Set();
@@ -323,7 +324,7 @@ function startMatch() {
       }
       if (selected !== word) {
         const wrongCard = left.get(selected);
-        wrongCard.classList.add('match-miss');
+        if (!reduceMotion.matches) wrongCard.classList.add('match-miss');
         mistakes.add(selected);
         mistakes.add(word);
         feedback('match-feedback', '配错了。这次选中的两个词本轮都不能获得新星，再试一次。', 'bad');
@@ -349,7 +350,7 @@ function startMatch() {
         const missed = missedWords.map(entry => entry.term);
         const result = '全部配对完成，本轮新点亮 ' + newStars + ' 颗星。';
         const missedNote = missed.length ? '曾配错、本轮未获新星：' + missed.join('、') + '。' : '';
-        feedback('match-feedback', result + missedNote + '按 Enter 可以换一组。', missed.length ? '' : 'good');
+        feedback('match-feedback', result + missedNote + '按 Enter 可以换一轮。', missed.length ? '' : 'good');
         if (!mistakes.size) celebration.showModal();
       }
     }));
@@ -443,13 +444,30 @@ byId('spell-form').addEventListener('submit', event => {
   byId('submit').focus();
 });
 
+function scopeLabel(scope) {
+  if (scope?.size === 1) {
+    const [batch] = scope;
+    return batch.topic + ' · 第 ' + batch.number + ' 组';
+  }
+  if (scope?.size) return '已选 ' + scope.size + ' 组';
+  return topic.value || '全部主题';
+}
+
+const studioModes = {
+  study: ['01 / FLASHCARDS', '背词卡', '选一个词组，先回忆词义，再翻卡确认。'],
+  browse: ['02 / WORD INDEX', '查词', '按主题浏览，或者搜索单词和中文释义。'],
+  match: ['03 / MATCHING', '连星配对', '每轮最多 10 对。把单词与释义连起来。'],
+  spell: ['04 / SPELLING', '拼写', '根据词义填字母，按 Enter 提交，再按一次进入下一题。'],
+  quiz: ['05 / IN CONTEXT', '句子选择', '根据上下文选词，提交后查看答案解析。']
+};
+
 function refresh(focusSpelling = true) {
   const scope = scopes[mode];
   byId('practice-scope').hidden = !scope;
   if (scope) {
     for (const [batch, input] of scopeInputs) input.checked = scope.has(batch);
     byId('scope-clear').disabled = !scope.size;
-    byId('scope-summary').textContent = scope.size ? '已选 ' + scope.size + ' 组' : '使用主题范围';
+    byId('scope-summary').textContent = scopeLabel(scope);
   }
   updateProgress();
   if (mode === 'browse') renderList();
@@ -459,6 +477,12 @@ function refresh(focusSpelling = true) {
 
 function activateMode(nextMode, focusSpelling = true) {
   mode = nextMode;
+  if (mode !== 'study') stopSpeech();
+  const [kicker, title, description] = studioModes[mode];
+  byId('studio-mode').textContent = title;
+  byId('studio-kicker').textContent = kicker;
+  byId('studio-title').textContent = title;
+  byId('studio-description').textContent = description;
   for (const tab of modeButtons) {
     const active = tab.dataset.mode === mode;
     tab.setAttribute('aria-pressed', String(active));
@@ -504,10 +528,12 @@ window.addEventListener('storage', event => {
     records = readProgress();
     updateProgress();
     if (mode === 'browse') renderList();
+    if (mode === 'study') renderMap();
   }
 });
 
 topic.addEventListener('change', () => {
+  scopes[mode]?.clear();
   spellingQueue = [];
   byId('word-list').scrollTop = 0;
   refresh(false);

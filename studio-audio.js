@@ -1,0 +1,110 @@
+'use strict';
+
+const speechStatus = byId('speech-status');
+let audioContext;
+let clipSource;
+let voiceUtterance;
+let voiceTimer;
+let speechRequest = 0;
+let recentPack;
+let recentAudio;
+
+function stopSpeech() {
+  speechRequest++;
+  if (clipSource) {
+    clipSource.stop();
+    clipSource = null;
+  }
+  if (voiceUtterance) {
+    window.speechSynthesis.cancel();
+    voiceUtterance = null;
+  }
+  clearTimeout(voiceTimer);
+  speechStatus.textContent = '';
+}
+
+function speakWithDevice(word, request) {
+  const synth = window.speechSynthesis;
+  const fail = () => {
+    if (speechRequest !== request) return;
+    clearTimeout(voiceTimer);
+    speechStatus.textContent = '发音暂不可用，请检查浏览器声音设置后重试。';
+    voiceUtterance = null;
+    synth?.cancel();
+  };
+  if (!synth || !window.SpeechSynthesisUtterance) {
+    fail();
+    return;
+  }
+  const utterance = new SpeechSynthesisUtterance(word.term);
+  const voice = synth.getVoices().find(item => item.lang.toLowerCase().startsWith('en-'));
+  if (voice) utterance.voice = voice;
+  utterance.lang = voice?.lang || 'en-US';
+  utterance.onstart = () => {
+    if (speechRequest !== request) return;
+    clearTimeout(voiceTimer);
+    speechStatus.textContent = '播放中…';
+  };
+  utterance.onend = () => {
+    if (speechRequest !== request) return;
+    clearTimeout(voiceTimer);
+    voiceUtterance = null;
+    speechStatus.textContent = '';
+  };
+  utterance.onerror = fail;
+  voiceUtterance = utterance;
+  voiceTimer = setTimeout(fail, 4000);
+  synth.speak(utterance);
+}
+
+async function speakStudy(word) {
+  if (!word) return;
+  stopSpeech();
+  const request = speechRequest;
+  speechStatus.textContent = '正在载入发音…';
+  try {
+    const clip = typeof pronunciation === 'object' && Object.hasOwn(pronunciation, word.term) && pronunciation[word.term];
+    const AudioEngine = window.AudioContext || window.webkitAudioContext;
+    if (!clip || !AudioEngine) throw new Error('Audio clip unavailable');
+    audioContext ||= new AudioEngine();
+    const [pack, start, duration] = clip;
+    // Resume immediately inside the click gesture for Safari and mobile browsers.
+    const ready = audioContext.resume();
+    if (recentPack !== pack) {
+      recentPack = pack;
+      recentAudio = fetch('pronunciation/' + pack + '.mp3?v=1')
+        .then(response => {
+          if (!response.ok) throw new Error('Audio download failed');
+          return response.arrayBuffer();
+        })
+        .then(data => audioContext.decodeAudioData(data))
+        .catch(error => {
+          if (recentPack === pack) recentPack = undefined;
+          throw error;
+        });
+    }
+    const timeout = new Promise((_, reject) => {
+      voiceTimer = setTimeout(() => reject(new Error('Audio timed out')), 5000);
+    });
+    const [, buffer] = await Promise.race([Promise.all([ready, recentAudio]), timeout]);
+    if (speechRequest !== request) return;
+    clearTimeout(voiceTimer);
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.onended = () => {
+      source.disconnect();
+      if (clipSource !== source) return;
+      clipSource = null;
+      speechStatus.textContent = '';
+    };
+    source.start(0, start / 1000, duration / 1000);
+    clipSource = source;
+    speechStatus.textContent = '播放中…';
+  } catch {
+    if (speechRequest === request) {
+      clearTimeout(voiceTimer);
+      speakWithDevice(word, request);
+    }
+  }
+}
