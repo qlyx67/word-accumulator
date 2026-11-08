@@ -31,7 +31,69 @@ header{position:relative;padding-top:42px}
 .celebration h2{font-size:2rem;margin:4px 0;color:#49348d}
 .celebration svg{display:block;width:152px;height:85px;margin:auto}
 </style>
-<link rel="stylesheet" href="accumulator.css?v=3">
+<style>
+:root{color-scheme:dark;color:#d4e6dd;background:#1d231f;--accent:#8fc6b4;--muted:#a1b6aa;--border:#36423b;--panel:#131614;--raised:#212823;--selected:#24614f;--gold:#d6ae62}
+body{background:radial-gradient(ellipse at 75% 0,#212b26,transparent 70%)}
+main{max-width:1160px;padding:clamp(12px,4vw,40px)}
+header.acc-hero{position:relative;display:grid;grid-template-columns:1fr minmax(220px,36%);align-items:center;gap:20px;min-height:235px;padding:32px 36px;border:1px solid #345d4f;border-radius:23px;background:#15392f;color:#fbf8e9}
+.acc-hero h1{font-size:clamp(36px,6vw,68px);letter-spacing:.01em}
+.acc-hero .eyebrow,.acc-hero .hero-credit{color:#e5c58e}
+.acc-hero .eyebrow{margin-bottom:10px}
+.acc-hero p{color:#dbe9df;margin:.6rem 0}
+.hero-art{position:relative;width:min(100%,232px);margin:auto;aspect-ratio:232/174}
+.hero-art svg{display:block;width:100%;height:100%}
+.hour-label{position:absolute;left:0;right:0;text-align:center;color:#fff4d7;line-height:1.05;font-weight:750;text-shadow:0 1px 3px #102b23}
+.hour-label span{display:block;font-size:.69rem;font-weight:600;margin-top:3px}
+.hour-top{top:22%;font-size:clamp(1rem,3.6vw,1.6rem)}
+.hour-bottom{top:65%;font-size:clamp(1rem,3.6vw,1.6rem)}
+nav{border:1px solid var(--border);padding:5px;border-radius:13px;background:#1b201d}
+nav button{min-width:84px;border:0;background:transparent}
+.card{border-radius:15px;background:var(--panel);box-shadow:0 3px 10px #0003}
+.detail{background:var(--raised)}
+.exercise-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,30%);align-items:start;gap:12px}
+.exercise-layout.browsing{display:block}
+.wrong-side{background:var(--raised)}
+.wrong-side h2{font-size:1.18rem;margin-top:0}
+.wrong-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wrong-actions button{padding:5px 7px;font-size:.86rem}
+.wrong-actions button:disabled{cursor:default;opacity:.55}
+.wrong-list{max-height:38vh;overflow:auto;margin:12px 0 0;padding:0;list-style:none}
+.wrong-list li{border-top:1px solid var(--border);padding:6px 0;overflow-wrap:anywhere}
+.wrong-list strong,.wrong-list small{display:block}
+.toolbar .filter-control{margin-right:auto}
+.save-note{margin-top:13px;color:var(--muted);font-size:.83rem}
+@media(max-width:700px){.exercise-layout{grid-template-columns:1fr}.wrong-list{max-height:210px}header.acc-hero{grid-template-columns:minmax(0,1fr) minmax(118px,39%);gap:8px;padding:30px 14px 16px;min-height:0}.acc-hero h1{font-size:clamp(27px,6vw,42px)}.acc-hero p{font-size:.85rem}.hour-label span{font-size:.6rem}}
+.exercise-layout{grid-template-columns:minmax(0,1fr) minmax(295px,39%)}
+.wrong-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.wrong-columns section+section{border-left:1px solid var(--border);padding-left:10px}
+.wrong-columns h3{margin:0;font-size:.95rem}
+.wrong-columns .muted{font-size:.8rem}
+.wrong-actions{grid-template-columns:1fr}
+.wrong-columns button{width:100%;min-height:38px;padding:5px 7px;font-size:.82rem;overflow-wrap:anywhere}
+.sentence-list button{background:transparent;text-align:left}
+.quiz-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.quiz-options button{overflow-wrap:anywhere}
+.quiz-correct{background:#214536;color:#d3f5df;border-color:#6da580}
+.quiz-incorrect{background:#4b2926;color:#ffd7cc;border-color:#c17c72}
+.quiz-explanation{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:10px 13px;margin:8px 0 12px}
+#quiz-prompt{font-size:1.15rem;font-weight:650;margin:16px 0}
+@media(max-width:780px){.exercise-layout{grid-template-columns:1fr}}
+
+button,input,select{background:var(--panel)}
+input::placeholder{color:#9aaba2}
+button[aria-pressed=true],.primary{background:var(--selected);border-color:#497d6b;color:#f0faf5}
+.detail,.wrong-side{background:var(--raised)}
+.word-stars{color:var(--gold)}
+:focus-visible{outline-color:#e1be79}
+a{color:#a4d7c5}
+.good{color:#a8d9bc}
+.bad{color:#ffac9d}
+.pairs button:disabled,.letter.good{background:#214536;color:#d3f5df}
+.letter.bad{background:#4b2926;color:#ffd7cc}
+.celebration-inner{background:linear-gradient(145deg,#3e2c35,#233b31 75%,#3a3222)}
+.celebration h2{color:#f1c587}
+.celebration::backdrop{background:#080e0bd0}
+</style>
 <script>const words = [];</script>
 <script defer src="words-01.js"></script>
 <script defer src="words-02.js?v=5"></script>
