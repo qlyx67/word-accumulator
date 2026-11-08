@@ -323,7 +323,6 @@ function startMatch() {
       if (selected !== word) {
         mistakes.add(selected);
         mistakes.add(word);
-        recordAttempt([selected, word], 'match', true);
         feedback('match-feedback', '配错了。这次选中的两个词本轮都不能获得新星，再试一次。', 'bad');
         return;
       }
@@ -341,7 +340,9 @@ function startMatch() {
       if (nextWord) {
         feedback('match-feedback', matched.size + ' / ' + round.length, 'good');
       } else {
-        const missed = round.filter(entry => mistakes.has(entry)).map(entry => entry.term);
+        const missedWords = round.filter(entry => mistakes.has(entry));
+        if (missedWords.length) recordAttempt(missedWords, 'match', true);
+        const missed = missedWords.map(entry => entry.term);
         const result = '全部配对完成，本轮新点亮 ' + newStars + ' 颗星。';
         const missedNote = missed.length ? '曾配错、本轮未获新星：' + missed.join('、') + '。' : '';
         feedback('match-feedback', result + missedNote + '按 Enter 可以换一组。', missed.length ? '' : 'good');
@@ -460,15 +461,20 @@ function activateMode(nextMode, focusSpelling = true) {
     byId(tab.dataset.mode).hidden = !active;
   }
   byId('exercise-layout').classList.toggle('browsing', mode === 'browse');
-  filter.replaceChildren(...filterOptions[mode].map(([value, label]) => new Option(label, value)));
+  byId('word-toolbar').hidden = mode === 'quiz';
+  filter.replaceChildren(...(filterOptions[mode] || []).map(([value, label]) => new Option(label, value)));
   filter.value = filters[mode];
   spellingQueue = [];
   refresh(focusSpelling);
+  if (mode === 'quiz') nextSentence();
 }
 
 for (const control of modeButtons) {
   control.addEventListener('click', () => {
-    if (mode !== control.dataset.mode) activateMode(control.dataset.mode);
+    if (mode !== control.dataset.mode) {
+      if (control.dataset.mode === 'quiz') openSentencePractice(false);
+      else activateMode(control.dataset.mode);
+    }
   });
 }
 

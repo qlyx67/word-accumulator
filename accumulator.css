@@ -29,3 +29,18 @@ nav button{min-width:84px;border:0;background:transparent}
 .toolbar .filter-control{margin-right:auto}
 .save-note{margin-top:13px;color:var(--muted);font-size:.83rem}
 @media(max-width:700px){.exercise-layout{grid-template-columns:1fr}.wrong-list{max-height:210px}header.acc-hero{grid-template-columns:minmax(0,1fr) minmax(118px,39%);gap:8px;padding:30px 14px 16px;min-height:0}.acc-hero h1{font-size:clamp(27px,6vw,42px)}.acc-hero p{font-size:.85rem}.hour-label span{font-size:.6rem}}
+.exercise-layout{grid-template-columns:minmax(0,1fr) minmax(295px,39%)}
+.wrong-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.wrong-columns section+section{border-left:1px solid #eadfcb;padding-left:10px}
+.wrong-columns h3{margin:0;font-size:.95rem}
+.wrong-columns .muted{font-size:.8rem}
+.wrong-actions{grid-template-columns:1fr}
+.wrong-columns button{width:100%;min-height:38px;padding:5px 7px;font-size:.82rem;overflow-wrap:anywhere}
+.sentence-list button{background:transparent;text-align:left}
+.quiz-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.quiz-options button{overflow-wrap:anywhere}
+.quiz-correct{background:#dff2e4;border-color:#6da580}
+.quiz-incorrect{background:#f9e2df;border-color:#c17c72}
+.quiz-explanation{border:1px solid var(--border);background:#f4f8f3;border-radius:12px;padding:10px 13px;margin:8px 0 12px}
+#quiz-prompt{font-size:1.15rem;font-weight:650;margin:16px 0}
+@media(max-width:780px){.exercise-layout{grid-template-columns:1fr}}

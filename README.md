@@ -9,7 +9,7 @@
 
 ## 存档与进度
 
-Git 分支 archive/ielts-baseline 保存开发起点，main 保存单词累计器。基础词表来自 IELTS Words 的校对版（上游提交 4ccbb08ecee1b22088d0012ffa31b3eea78dddc3）。词条沿用该版本的校对范围。
+Git 分支 archive/ielts-baseline 保存开发起点，main 保存单词累积器。基础词表来自 IELTS Words 的校对版（上游提交 4ccbb08ecee1b22088d0012ffa31b3eea78dddc3）。词条沿用该版本的校对范围。
 
 星星、作答记录和错词写入当前浏览器的 localStorage。网页没有登录和云同步，与原雅思站的进度分开。换设备、浏览器、浏览器档案或站点来源（协议、主机名、端口）会看到独立进度。清除网站数据、卸载浏览器或结束无痕会话可能清除原进度。用同一浏览器档案访问同一固定网址可继续练习，进度还没有应用内导出功能。
 
