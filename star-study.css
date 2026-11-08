@@ -1,0 +1,29 @@
+.acc-hero .hero-credit{letter-spacing:.13em}
+header.acc-hero{min-height:176px;background:linear-gradient(116deg,#122c25,#19372f);padding-block:18px}
+.acc-hero h1{font-size:clamp(30px,5vw,55px)}
+.hero-art{max-width:180px}
+.star-study{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(235px,1fr);gap:12px}
+.star-study .card{margin-top:0}
+.study-meta,.map-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.study-meta .eyebrow,.map-head .eyebrow{color:var(--gold)}
+.study-card{position:relative;min-width:0}
+#study-flip{width:100%;display:block;min-height:150px;margin:12px 0 8px;background:radial-gradient(ellipse at 30% 0,#274339,#161d19 72%);border-color:#45685a;text-align:center}
+#study-word{display:block;font-size:clamp(1.65rem,5vw,3.4rem);font-weight:750;overflow-wrap:anywhere;line-height:1.16}
+#study-details{padding:8px 4px;overflow-wrap:anywhere}
+#study-details p{margin:4px 0}
+.study-ratings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:10px 0}
+.study-ratings button{padding-inline:3px;font-size:.9rem}
+.study-ratings button:disabled{opacity:.5}
+.study-help{margin-top:12px}
+.study-help summary{cursor:pointer;color:var(--accent)}
+#constellation{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:16px 0}
+#constellation button{padding:0;min-width:0;min-height:37px;border-color:transparent;background:transparent;color:#8da69a;font-size:1.18rem}
+#constellation .lit{color:#f0c677;text-shadow:0 0 9px #bc934d85}
+#constellation [aria-current=true]{border-color:#7aa894;background:#253c31}
+#map-group{max-width:100%;min-width:0}
+#match{position:relative}
+.match-flash{position:fixed;height:2px;background:#f4c873;box-shadow:0 0 8px #f4c873;pointer-events:none;z-index:3;transform-origin:left}
+.match-miss{animation:match-miss .18s ease-out}
+@keyframes match-miss{25%,75%{transform:translateX(-3px)}50%{transform:translateX(3px)}}
+@media(max-width:730px){.star-study{grid-template-columns:1fr}header.acc-hero{min-height:0;padding-top:28px}.hero-art{max-width:140px}}
+@media(prefers-reduced-motion:reduce){.match-miss{animation:none}.match-flash{display:none}}

@@ -190,8 +190,8 @@ function recordAttempt(entries, skill, wrong, star = false) {
 }
 
 function renderWrongWords() {
-  byId('wrong-side').hidden = mode === 'browse';
-  if (mode === 'browse') return;
+  byId('wrong-side').hidden = mode === 'browse' || mode === 'study';
+  if (mode === 'browse' || mode === 'study') return;
   const wrongWords = scopedWords().filter(wasWrong);
   byId('wrong-count').textContent = wrongWords.length + ' 个';
   byId('wrong-empty').hidden = wrongWords.length > 0;
@@ -312,6 +312,7 @@ function startMatch() {
       feedback('match-feedback', matched.size + ' / ' + round.length);
     });
     control.setAttribute('aria-pressed', 'false');
+    control.addEventListener('animationend', () => control.classList.remove('match-miss'));
     left.set(word, control);
   }
   for (const word of shuffle(round)) {
@@ -321,11 +322,14 @@ function startMatch() {
         return;
       }
       if (selected !== word) {
+        const wrongCard = left.get(selected);
+        wrongCard.classList.add('match-miss');
         mistakes.add(selected);
         mistakes.add(word);
         feedback('match-feedback', '配错了。这次选中的两个词本轮都不能获得新星，再试一次。', 'bad');
         return;
       }
+      flashMatch(left.get(word), right.get(word));
       matched.add(word);
       const earnsStar = !mistakes.has(word) && !earned(word).match;
       recordAttempt([word], 'match', false, earnsStar);
@@ -460,13 +464,14 @@ function activateMode(nextMode, focusSpelling = true) {
     tab.setAttribute('aria-pressed', String(active));
     byId(tab.dataset.mode).hidden = !active;
   }
-  byId('exercise-layout').classList.toggle('browsing', mode === 'browse');
-  byId('word-toolbar').hidden = mode === 'quiz';
+  byId('exercise-layout').classList.toggle('browsing', mode === 'browse' || mode === 'study');
+  byId('word-toolbar').hidden = mode === 'quiz' || mode === 'study';
   filter.replaceChildren(...(filterOptions[mode] || []).map(([value, label]) => new Option(label, value)));
   filter.value = filters[mode];
   spellingQueue = [];
   refresh(focusSpelling);
   if (mode === 'quiz') nextSentence();
+  if (mode === 'study') renderMap();
 }
 
 for (const control of modeButtons) {
@@ -512,4 +517,3 @@ search.addEventListener('input', () => {
   renderList();
 });
 byId('new-round').addEventListener('click', startMatch);
-activateMode('browse');
