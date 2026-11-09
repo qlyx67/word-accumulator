@@ -20,13 +20,14 @@
 <script defer src="words-12.js?v=5"></script>
 <script defer src="extra-examples.js"></script>
 <script defer src="word-audit.js"></script>
-<script defer src="accumulator.js?v=studio2"></script>
-<script defer src="sentence-quiz.js"></script>
-<link rel="stylesheet" href="star-study.css?v=studio2">
+<script defer src="custom-decks.js?v=1"></script>
+<script defer src="accumulator.js?v=decks1"></script>
+<script defer src="sentence-quiz.js?v=decks1"></script>
+<link rel="stylesheet" href="star-study.css?v=decks1">
 <script defer src="pronunciation.js?v=1"></script>
 <script defer src="pronunciation-audit.js?v=1"></script>
-<script defer src="studio-audio.js?v=1"></script>
-<script defer src="star-study.js?v=studio2"></script>
+<script defer src="studio-audio.js?v=decks1"></script>
+<script defer src="star-study.js?v=decks1"></script>
 </head>
 <body><div class="studio-shell">
 <aside class="studio-rail" aria-label="导航">
@@ -45,7 +46,7 @@
 <div class="studio-top"><span>学习工作台 <b>/</b> <strong id="studio-mode">背词卡</strong></span><button id="help-open" type="button">? 操作说明</button></div>
 <header class="acc-hero">
   <div class="hero-copy"><div class="eyebrow" id="studio-kicker">01 / FLASHCARDS</div><h1 id="studio-title">背词卡</h1><p id="studio-description">选一个词组，先回忆词义，再翻卡确认。</p></div>
-  <div class="hero-progress"><span class="eyebrow">全部词汇进度</span><div class="hero-metrics"><div><strong id="mastered-count">—</strong><span>已掌握</span></div><div><strong id="unmastered-percent">—</strong><span>待掌握</span></div></div></div>
+  <div class="hero-progress"><span class="eyebrow">当前词库进度</span><div class="hero-metrics"><div><strong id="mastered-count">—</strong><span>已掌握</span></div><div><strong id="unmastered-percent">—</strong><span>待掌握</span></div></div></div>
   <div class="hero-art">
     <svg viewBox="0 0 232 174" shape-rendering="crispEdges" aria-hidden="true">
       <defs>
@@ -66,7 +67,10 @@
   </div>
 </header>
 
-<div class="toolbar" id="word-toolbar" hidden><label for="topic">主题 <select id="topic"><option value="">全部主题</option></select></label><label class="filter-control" for="word-filter">筛选 <select id="word-filter"></select></label><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div>
+<div class="study-controls" aria-label="词库与筛选">
+  <div class="deck-bar"><div class="control-symbol" aria-hidden="true">▤</div><label class="select-field" for="deck-select"><span>学习词库</span><select id="deck-select"></select></label><button type="button" class="primary" id="deck-import">＋ 导入词库</button></div>
+  <div class="toolbar" id="word-toolbar" hidden><label class="select-field" for="topic"><span>主题范围</span><select id="topic"><option value="">全部主题</option></select></label><label class="select-field filter-control" for="word-filter"><span>练习筛选</span><select id="word-filter"></select></label><div class="filter-stats"><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div></div>
+</div>
 <details class="card scope-picker" id="practice-scope" hidden>
 <summary>练习范围 <span class="scope-chip" id="scope-summary"></span></summary>
 <p class="muted">可以跨主题勾选多组。未勾选时，使用上方「主题」选定的范围。</p>
@@ -141,10 +145,23 @@
 <button type="button" id="sentence-review">重做句子错题</button>
 <ol class="wrong-list sentence-list" id="sentence-list"></ol></section></div>
 </aside></div>
+<dialog id="deck-dialog" class="deck-dialog" aria-labelledby="deck-title">
+<div class="panel-heading"><span class="eyebrow">PERSONAL VOCABULARY</span><h2 id="deck-title">导入我的词库</h2></div>
+<label class="deck-label" for="deck-name">词库名称</label><input id="deck-name" maxlength="60" placeholder="例如 管理学第 1–3 章">
+<label class="deck-label" for="deck-text">粘贴词表，或先读取文件</label>
+<textarea id="deck-text" rows="5" placeholder="一行一词，或用制表符、竖线分列&#10;allocate | v. | 分配 | We allocate time for each task.&#10;habitat"></textarea>
+<div class="deck-upload"><label for="deck-file">选择截图或文档</label><input id="deck-file" type="file" accept="image/*,.txt,.csv,.tsv,.docx,.pdf"></div>
+<p class="tag">支持图片、TXT、CSV、TSV、DOCX 和可选中文字的 PDF。文件在浏览器读取。优先保留原文中的词性、释义和例句。</p>
+<label class="lookup-toggle"><input type="checkbox" id="deck-lookup" checked> 用词典补齐缺失项 <span class="tag">只发送待查的单词</span></label>
+<div class="actions"><button type="button" id="deck-preview" class="primary">生成预览</button><button type="button" id="deck-close">关闭</button></div>
+<p class="tag" id="deck-status" role="status"></p>
+<div id="deck-review" hidden><h3>确认词条</h3><p class="tag">可以修改每一项。没有释义的词可背词卡，补上释义后才能用于配对和拼写。</p><div id="deck-rows"></div><button type="button" class="primary" id="deck-save">保存并切换词库</button></div>
+</dialog>
 <dialog class="studio-help" id="studio-help" aria-labelledby="help-title">
 <div class="panel-heading"><span class="eyebrow">QUICK GUIDE</span><h2 id="help-title">操作说明 · 触屏与键盘</h2></div>
 <p>背词卡：每组最多 30 词。点卡片或按空格看释义，也可以直接点按钮或按 1 / 2 / 3 自评。不会的词稍后再出现，有点印象的排到队尾，每词最多追加一次。</p>
 <p>发音：点「发音」播放英语语音。连星配对：每轮最多 10 对，先点英文、再点释义，也可用 Tab 和 Enter 操作按钮。拼写：输入后按 Enter 提交，再按一次进下一题。句子选择：点选项立即看解析。</p>
+<p>学习词库：用顶部「学习词库」切换。各词库独立保存星星和错题。</p>
 <p>星图：点星点可打开对应词卡。自评只改变复习顺序，配对和拼写都答对才算掌握。词卡位置保存在当前浏览器。</p>
 <form method="dialog"><button class="primary">开始学习</button></form></dialog>
 <p class="save-note" id="save-note">进度只保存在当前浏览器。换设备、换浏览器或清除网站数据后，需要重新开始。</p>

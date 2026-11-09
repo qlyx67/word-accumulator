@@ -1,6 +1,6 @@
 'use strict';
 
-const sentenceQuestions = [
+const builtInQuestions = [
   ['rainfall', 'The farmers measured the total ___ during the wet season in millimetres.', '名词', 'wet season 和毫米都指向降雨量。', '降雨量', 'sunshine:日照|wind:风|temperature:温度|humidity:湿度|pressure:气压|visibility:能见度'],
   ['evaporate', 'When the puddle warmed up in the sun, the liquid water began to ___ into water vapour.', '动词原形', 'began to 后接动词原形。液态水变成水蒸气是蒸发。', '蒸发', 'freeze:冻结|condense:凝结|melt:融化|settle:沉降|drain:排出|crystallise:结晶'],
   ['fragile', 'The glass sculpture is extremely ___ and could break if it is dropped.', '形容词', 'is extremely 后可接形容词。掉落就可能碎，说明它很脆弱。', '易碎的', 'flexible:柔韧的|durable:耐用的|opaque:不透明的|portable:便携的|elastic:有弹性的|waterproof:防水的'],
@@ -24,8 +24,10 @@ const sentenceQuestions = [
   decoys: decoys.split('|').map(item => item.split(':'))
 }));
 
-const sentenceKey = 'word-accumulator.sentence-mistakes.v1';
-const sentenceOptionsKey = 'word-accumulator.sentence-options.v1';
+const sentenceQuestions = activeDeck ? buildDeckQuestions(words) : builtInQuestions;
+
+const sentenceKey = deckStorageKey('word-accumulator.sentence-mistakes.v1');
+const sentenceOptionsKey = deckStorageKey('word-accumulator.sentence-options.v1');
 
 function loadSentenceOptions() {
   try { return JSON.parse(localStorage.getItem(sentenceOptionsKey)) || {}; }
@@ -74,7 +76,7 @@ function nextSentence() {
   }
   sentenceQuestion = sentenceQueue.pop();
   const question = sentenceQuestion;
-  byId('quiz-prompt').textContent = question?.sentence || '错题本里还没有句子题。';
+  byId('quiz-prompt').textContent = question?.sentence || (sentenceReview ? '错题本里还没有句子题。' : '当前词库需要至少 4 个有释义的词，且至少一个例句中含有完整词条。');
   byId('quiz-mode').textContent = sentenceReview ? '正在重做句子错题' : '正在练习句子选词';
   byId('quiz-all').hidden = !sentenceReview;
   byId('quiz-explanation').hidden = true;
@@ -85,7 +87,9 @@ function nextSentence() {
   if (!question) return;
   const history = loadSentenceOptions();
   const previous = new Set(Array.isArray(history[question.id]) ? history[question.id].slice(0, 3) : []);
-  const decoys = shuffle(question.decoys.filter(([term]) => !previous.has(term))).slice(0, 3);
+  const fresh = shuffle(question.decoys.filter(([term]) => !previous.has(term)));
+  const seen = shuffle(question.decoys.filter(([term]) => previous.has(term)));
+  const decoys = [...fresh, ...seen].slice(0, 3);
   history[question.id] = decoys.map(([term]) => term);
   try { localStorage.setItem(sentenceOptionsKey, JSON.stringify(history)); } catch {}
   const choices = shuffle([[question.id, question.meaning], ...decoys]);
@@ -104,7 +108,7 @@ function nextSentence() {
         renderSentenceMistakes();
       }
       feedback('quiz-feedback', correct ? '答对了！' : '答错了，正确答案是 ' + question.id + '。', correct ? 'good' : 'bad');
-      byId('quiz-part').textContent = '空格需要 ' + question.part + '。';
+      byId('quiz-part').textContent = question.part ? '词性：' + question.part : '';
       byId('quiz-reason').textContent = question.reason;
       byId('quiz-meanings').replaceChildren(...choices.map(([word, meaning]) => {
         const item = document.createElement('li');

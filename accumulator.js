@@ -20,7 +20,7 @@ for (const word of words) {
 }
 const scopes = { match: new Set(), spell: new Set() };
 const scopeInputs = new Map();
-const progressKey = 'word-accumulator.progress.v1';
+const progressKey = deckStorageKey('word-accumulator.progress.v1');
 const filter = byId('word-filter');
 const filterOptions = {
   browse: [['all', '全部词汇'], ['unmastered', '未掌握'], ['mastered', '已掌握'], ['wrong', '有错题记录']],
@@ -380,7 +380,7 @@ function nextSpelling(focus = true) {
     feedback('spell-feedback', '');
     return;
   }
-  byId('spell-clue').textContent = question.pos + ' · ' + question.meaning;
+  byId('spell-clue').textContent = [question.pos, question.meaning].filter(Boolean).join(' · ');
   byId('spell-hint').textContent = '首字母 ' + question.term[0].toUpperCase() + ' · ' + question.term.replace(/[^a-z]/gi, '').length + ' 个字母';
   const answer = byId('answer');
   answer.value = '';

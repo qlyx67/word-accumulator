@@ -1,6 +1,6 @@
 'use strict';
 
-const studyKey = 'word-accumulator.study.v2';
+const studyKey = deckStorageKey('word-accumulator.study.v2');
 const studyFace = byId('study-face');
 const studyDetails = byId('study-details');
 const ratingControls = [...document.querySelectorAll('[data-rating]')];
@@ -9,7 +9,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let studySaved = {};
 try {
   studySaved = JSON.parse(localStorage.getItem(studyKey)) || {
-    group: JSON.parse(localStorage.getItem('word-accumulator.study.v1'))?.group
+    group: activeDeck ? 0 : JSON.parse(localStorage.getItem('word-accumulator.study.v1'))?.group
   };
 } catch {}
 const groupControl = byId('map-group');
@@ -95,7 +95,7 @@ function flipStudy() {
   byId('study-flip').setAttribute('aria-expanded', String(revealed));
   byId('study-hint').textContent = revealed ? '收起释义 · 空格' : '点击翻页 · 空格';
   if (!revealed) return;
-  byId('study-meaning').textContent = studyWord.pos + ' · ' + studyWord.meaning;
+  byId('study-meaning').textContent = [studyWord.pos, studyWord.meaning].filter(Boolean).join(' · ') || '暂无释义';
   byId('study-example').textContent = studyWord.example || extraExamples[studyWord.term] || '';
   const source = byId('study-source');
   source.hidden = !studyWord.exampleId;
@@ -175,7 +175,7 @@ for (const control of ratingControls) {
 }
 document.addEventListener('keydown', event => {
   if (mode !== 'study' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
-      help.open || event.target.closest('input, select, textarea, [contenteditable], summary, a')) return;
+      (help.open || deckDialog.open) || event.target.closest('input, select, textarea, [contenteditable], summary, a')) return;
   if (event.code === 'Space' && (!event.target.closest('button') || event.target.id === 'study-flip' || event.target.matches('[data-rating]'))) {
     event.preventDefault();
     flipStudy();
