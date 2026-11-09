@@ -83,7 +83,8 @@ const bookHeader = /^[^A-Za-z0-9]{0,5}([A-Za-z]+(?:[ -][A-Za-z]+){0,3})\s*[/\\](
 const bookHeaderMissingSlash = /^[^A-Za-z0-9]{0,5}([A-Za-z]+(?:[ -][A-Za-z]+){0,3})\s*[/\\].{1,35}?\s+((?:n|vi|vt|v|adj|adv|a|ad|prep)\.(?:\s.*)?$)/i;
 const bookHeaderLostOpening = /^[^A-Za-z0-9]{0,5}([A-Za-z]+(?:[ -][A-Za-z]+){0,3})\s+([^\s/\\]*[’':][^/\\]{1,28})[/\\]\s*(.*)$/;
 const bookHeaderLostEnding = /^[^A-Za-z0-9]{0,5}([A-Za-z]+(?:[ -][A-Za-z]+){0,3})\s*[/\\]\s*([^/\\]{1,32})$/;
-const bookExample = /^(?:[eE€©2®&][., ]*\s*[gq9]|[».][., ]*\s*g)[.,: ]+\s*/;
+const bookExample = /^(?:(?:[eE€©2®&][., ]*\s*[gq9]|[».][., ]*\s*g)[.,: ]+|[eE] +(?=[A-Z]))\s*/;
+const embeddedBookHeader = /([^\s])[ \t]+(?=[*•♦4] +[A-Za-z][A-Za-z -]{1,34} *[/\\][^/\\\r\n]{1,32}[/\\] *(?:n|vi|vt|v|adj|adv|a|ad|prep)\.)/g;
 const bookEnding = /[.!?][”"’']?$/;
 const bookMetadata = /^(?:\[[^\]]+\]|\{[^}\]]+\]|\([^)]+\))$/;
 const bookSkip = /^(?:new words|unit\s*\d|mind the gap|vocabulary|词汇表)/i;
@@ -116,9 +117,9 @@ function textbookRows(text) {
     });
     entry = undefined;
   }
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const lines = text.replace(embeddedBookHeader, '$1\n').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+    let line = lines[i].replace(/^4 +(?=[A-Za-z -]+ *[/\\])/, '');
     if (/^proper names\b/i.test(line)) break;
     if (/^phrases and expressions\b/i.test(line)) {
       finish();
