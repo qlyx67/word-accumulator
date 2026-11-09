@@ -205,7 +205,7 @@ async function readDeckFile(file, status, getImageWorker) {
   if (file.size > 18 * 1024 * 1024) throw new Error('文件超过 18 MB，请拆分后再试。');
   if (isDeckImage(file)) {
     const worker = await getImageWorker();
-    return (await worker.recognize(file)).data.text;
+    return readDeckImage(file, worker, status);
   }
   if (/\.docx$/i.test(file.name)) {
     await loadDeckScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js');
@@ -326,13 +326,14 @@ deckFile.addEventListener('change', async () => {
       try {
         const result = (await readDeckFile(file, status, getImageWorker)).trim();
         if (!result) throw new Error('没有识别到文字');
+        if (token !== fileTask) return;
         results.push(result);
+        deckText.value = [deckText.value.trim(), result].filter(Boolean).join('\n');
       } catch (error) {
         failures.push(file.name + '（' + (error.message || '读取失败') + '）');
       }
     }
     if (token !== fileTask) return;
-    if (results.length) deckText.value = [deckText.value.trim(), ...results].filter(Boolean).join('\n');
     const summary = '已读取 ' + results.length + ' / ' + files.length + ' 个文件。';
     const errors = failures.length ? '未读出：' + failures.slice(0, 3).join('、') + (failures.length > 3 ? '等。' : '。') : '';
     deckStatus.textContent = summary + errors + (results.length ? '请核对文字，再生成预览。' : '');
