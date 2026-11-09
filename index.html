@@ -20,7 +20,7 @@
 <script defer src="words-12.js?v=5"></script>
 <script defer src="extra-examples.js"></script>
 <script defer src="word-audit.js"></script>
-<script defer src="custom-decks.js?v=2"></script>
+<script defer src="custom-decks.js?v=3"></script>
 <script defer src="accumulator.js?v=panels1"></script>
 <script defer src="sentence-quiz.js?v=decks1"></script>
 <link rel="stylesheet" href="star-study.css?v=panels1">
@@ -151,7 +151,7 @@
 <label class="deck-label" for="deck-name">词库名称</label><input id="deck-name" maxlength="60" placeholder="例如 管理学第 1–3 章">
 <label class="deck-label" for="deck-text">粘贴词表，或先读取文件</label>
 <textarea id="deck-text" rows="5" placeholder="一行一词，或用制表符、竖线分列&#10;allocate | v. | 分配 | We allocate time for each task.&#10;habitat"></textarea>
-<div class="deck-upload"><label for="deck-file">选择截图或文档</label><input id="deck-file" type="file" accept="image/*,.txt,.csv,.tsv,.docx,.pdf"></div>
+<div class="deck-upload"><label for="deck-file">选择截图或文档（可多选）</label><input id="deck-file" type="file" multiple accept="image/*,.txt,.csv,.tsv,.docx,.pdf"></div>
 <p class="tag">支持图片、TXT、CSV、TSV、DOCX 和可选中文字的 PDF。文件在浏览器读取。优先保留原文中的词性、释义和例句。</p>
 <label class="lookup-toggle"><input type="checkbox" id="deck-lookup" checked> 用词典补齐缺失项 <span class="tag">只发送待查的单词</span></label>
 <div class="actions"><button type="button" id="deck-preview" class="primary">生成预览</button><button type="button" id="deck-close">关闭</button></div>

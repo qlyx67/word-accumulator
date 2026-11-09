@@ -188,17 +188,24 @@ function loadDeckScript(url) {
   return deckScripts.get(url);
 }
 
-async function readDeckFile(file, status) {
+function isDeckImage(file) {
+  return file.type.startsWith('image/') || /\.(?:png|jpe?g|webp|gif|bmp|tiff?|avif)$/i.test(file.name);
+}
+
+async function createDeckImageWorker(status) {
+  await loadDeckScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  return window.Tesseract.createWorker(['eng', 'chi_sim', 'chi_tra'], 1, {
+    logger: data => {
+      if (data.status === 'recognizing text') status('正在识别图片 ' + Math.round(data.progress * 100) + '%…');
+    }
+  });
+}
+
+async function readDeckFile(file, status, getImageWorker) {
   if (file.size > 18 * 1024 * 1024) throw new Error('文件超过 18 MB，请拆分后再试。');
-  if (file.type.startsWith('image/')) {
-    await loadDeckScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
-    const worker = await window.Tesseract.createWorker(['eng', 'chi_sim', 'chi_tra'], 1, {
-      logger: data => {
-        if (data.status === 'recognizing text') status('正在识别图片 ' + Math.round(data.progress * 100) + '%…');
-      }
-    });
-    try { return (await worker.recognize(file)).data.text; }
-    finally { await worker.terminate(); }
+  if (isDeckImage(file)) {
+    const worker = await getImageWorker();
+    return (await worker.recognize(file)).data.text;
   }
   if (/\.docx$/i.test(file.name)) {
     await loadDeckScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js');
@@ -286,30 +293,54 @@ deckDialog.addEventListener('close', () => {
   invalidateDraft();
   deckStatus.textContent = '';
   deckFile.value = '';
+  deckFile.disabled = false;
 });
 deckText.addEventListener('input', () => {
   fileTask++;
   invalidateDraft();
   deckStatus.textContent = '';
+  deckFile.value = '';
+  deckFile.disabled = false;
 });
 deckFile.addEventListener('change', async () => {
-  const file = deckFile.files[0];
-  if (!file) return;
+  const files = [...deckFile.files];
+  if (!files.length) return;
   const token = ++fileTask;
   invalidateDraft();
   deckPreview.disabled = true;
-  const status = message => { if (token === fileTask) deckStatus.textContent = message; };
-  status('正在读取文件，首次读取可能需要下载组件…');
+  deckFile.disabled = true;
+
+  let current = 0;
+  let imageWorker;
+  const status = message => {
+    if (token === fileTask) deckStatus.textContent = '第 ' + current + ' / ' + files.length + ' 个文件 · ' + message;
+  };
+  const getImageWorker = () => imageWorker ??= createDeckImageWorker(status);
+  const results = [];
+  const failures = [];
   try {
-    const result = await readDeckFile(file, status);
+    for (const file of files) {
+      if (token !== fileTask) return;
+      current++;
+      status('正在读取 ' + file.name + '…');
+      try {
+        const result = (await readDeckFile(file, status, getImageWorker)).trim();
+        if (!result) throw new Error('没有识别到文字');
+        results.push(result);
+      } catch (error) {
+        failures.push(file.name + '（' + (error.message || '读取失败') + '）');
+      }
+    }
     if (token !== fileTask) return;
-    deckText.value = [deckText.value.trim(), result.trim()].filter(Boolean).join('\n');
-    status('已提取文字，请检查分列和例句，再生成预览。');
-  } catch (error) {
-    status('读取失败。' + (error.message || '可以复制文档文字后粘贴。'));
+    if (results.length) deckText.value = [deckText.value.trim(), ...results].filter(Boolean).join('\n');
+    const summary = '已读取 ' + results.length + ' / ' + files.length + ' 个文件。';
+    const errors = failures.length ? '未读出：' + failures.slice(0, 3).join('、') + (failures.length > 3 ? '等。' : '。') : '';
+    deckStatus.textContent = summary + errors + (results.length ? '请核对文字，再生成预览。' : '');
   } finally {
+    if (imageWorker) await imageWorker.then(worker => worker.terminate()).catch(() => {});
     if (token === fileTask) {
       deckPreview.disabled = false;
+      deckFile.disabled = false;
       deckFile.value = '';
     }
   }
