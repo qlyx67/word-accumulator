@@ -21,13 +21,14 @@
 <script defer src="extra-examples.js"></script>
 <script defer src="word-audit.js"></script>
 <script defer src="custom-decks.js?v=2"></script>
-<script defer src="accumulator.js?v=decks1"></script>
+<script defer src="accumulator.js?v=panels1"></script>
 <script defer src="sentence-quiz.js?v=decks1"></script>
-<link rel="stylesheet" href="star-study.css?v=decks1">
+<link rel="stylesheet" href="star-study.css?v=panels1">
 <script defer src="pronunciation.js?v=1"></script>
 <script defer src="pronunciation-audit.js?v=1"></script>
 <script defer src="studio-audio.js?v=decks1"></script>
 <script defer src="star-study.js?v=decks1"></script>
+<script defer src="filter-panels.js?v=1"></script>
 </head>
 <body><div class="studio-shell">
 <aside class="studio-rail" aria-label="导航">
@@ -68,8 +69,8 @@
 </header>
 
 <div class="study-controls" aria-label="词库与筛选">
-  <div class="deck-bar"><div class="control-symbol" aria-hidden="true">▤</div><label class="select-field" for="deck-select"><span>学习词库</span><select id="deck-select"></select></label><button type="button" class="primary" id="deck-import">＋ 导入词库</button></div>
-  <div class="toolbar" id="word-toolbar" hidden><label class="select-field" for="topic"><span>主题范围</span><select id="topic"><option value="">全部主题</option></select></label><label class="select-field filter-control" for="word-filter"><span>练习筛选</span><select id="word-filter"></select></label><div class="filter-stats"><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div></div>
+  <div class="deck-bar"><div class="control-symbol" aria-hidden="true">▤</div><div class="select-field"><label for="deck-select">学习词库</label><select id="deck-select"></select></div><button type="button" class="primary" id="deck-import">＋ 导入词库</button></div>
+  <div class="toolbar" id="word-toolbar" hidden><div class="select-field"><label for="topic">主题范围</label><select id="topic"><option value="">全部主题</option></select></div><div class="select-field filter-control"><label for="word-filter">练习筛选</label><select id="word-filter"></select></div><div class="filter-stats"><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div></div>
 </div>
 <details class="card scope-picker" id="practice-scope" hidden>
 <summary>练习范围 <span class="scope-chip" id="scope-summary"></span></summary>

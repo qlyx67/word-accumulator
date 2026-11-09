@@ -473,6 +473,7 @@ function refresh(focusSpelling = true) {
   if (mode === 'browse') renderList();
   if (mode === 'match') startMatch();
   if (mode === 'spell') nextSpelling(focusSpelling);
+  document.dispatchEvent(new Event('study-controls-updated'));
 }
 
 function activateMode(nextMode, focusSpelling = true) {

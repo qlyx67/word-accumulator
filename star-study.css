@@ -250,3 +250,38 @@ dialog::backdrop { background: #080d0bbd }
   .study-controls .toolbar .select-field { width: auto; flex: 1 1 110px; }
   .filter-stats { min-height: 26px; }
 }
+
+.select-field > label { color: var(--muted); font-size: .74rem; font-weight: 650; }
+.filter-panel-control { position: relative; min-width: 0; }
+.filter-panel-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; background: #18241c; text-align: left;
+}
+.deck-bar .filter-panel-trigger { margin-top: 0; }
+.filter-panel-trigger > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; font: inherit; }
+.filter-panel-trigger[aria-expanded="true"] { border-color: #86a477; background: #25372a; }
+.filter-panel-chevron { width: 7px; height: 7px; border: solid var(--accent); border-width: 0 1.5px 1.5px 0; flex: none; transform: rotate(45deg) translateY(-2px); }
+.filter-panel-trigger[aria-expanded="true"] .filter-panel-chevron { transform: rotate(225deg); }
+.filter-panel {
+  position: absolute; z-index: 15; inset-inline: 0; top: calc(100% + 7px);
+  display: flex; flex-direction: column; gap: 7px; max-height: var(--panel-height, 360px);
+  padding: 8px; border: 1px solid #55705b; border-radius: 13px;
+  background: #1e2b23; box-shadow: 0 13px 32px #080d0abb;
+}
+.filter-panel.opens-up { top: auto; bottom: calc(100% + 7px); }
+.filter-panel-title { color: var(--accent); font-size: .78rem; font-weight: 700; letter-spacing: .06em; padding: 0 5px; }
+.filter-panel-search { width: 100%; min-width: 0; padding: 6px 9px; }
+.filter-panel-options { overflow: auto; overscroll-behavior: contain; display: grid; gap: 4px; min-height: 0; padding: 2px; }
+.filter-panel .filter-panel-option {
+  display: grid; grid-template-columns: 14px minmax(0,1fr); gap: 6px;
+  align-items: center; width: 100%; min-height: 44px; margin: 0; padding: 5px 7px;
+  border-color: transparent; background: transparent; text-align: start; white-space: normal;
+}
+.filter-panel .filter-panel-option[aria-pressed="true"] { background: #354931; border-color: #536f51; }
+.filter-panel .filter-panel-option:focus-visible { outline-offset: -2px; }
+.filter-panel .filter-panel-option-text { color: #edf2e9; font: inherit; overflow-wrap: anywhere; }
+.filter-panel-option-text strong, .filter-panel-option-text small { display: block; }
+.filter-panel-option-text strong { font-size: .89rem; }
+.filter-panel-option-text small { color: var(--muted); font-size: .72rem; }
+.filter-panel .filter-panel-check { color: var(--accent); }
+.filter-panel-empty { padding: 7px; color: var(--muted); font-size: .83rem; }
