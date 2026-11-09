@@ -223,7 +223,7 @@ async function readDeckFile(file, status) {
       for (let i = 1; i <= pdf.numPages; i++) {
         status('读取 PDF 第 ' + i + ' / ' + pdf.numPages + ' 页…');
         const content = await (await pdf.getPage(i)).getTextContent();
-        const items = content.items.filter(item => item.str && item.transform);
+        const items = content.items.filter(item => item.str?.trim() && item.transform);
         items.sort((a, b) => b.transform[5] - a.transform[5]);
         const rows = [];
         for (const item of items) {
