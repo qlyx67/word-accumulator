@@ -49,7 +49,7 @@ deckSelect.addEventListener('change', () => {
   }
 });
 
-const posPattern = /^(?:(?:n|v|vi|vt|adj|adv|pron|prep|conj|interj|det|num|phr)\.?|noun|verb|adjective|adverb|preposition|conjunction|pronoun|determiner|phrase|interjection|名词|动词|形容词|副词|代词|介词|连词|感叹词|短语|数词)(?:\s*[/、]\s*.+)?$/i;
+const posPattern = /^(?:(?:n|v|vi|vt|a|ad|adj|adv|pron|prep|conj|interj|det|num|phr)\.?|noun|verb|adjective|adverb|preposition|conjunction|pronoun|determiner|phrase|interjection|名词|动词|形容词|副词|代词|介词|连词|感叹词|短语|数词)(?:\s*[/、]\s*.+)?$/i;
 const termPattern = /^[A-Za-z]+(?:[ '\u2019-][A-Za-z]+)*$/;
 const rowLabels = { term: '单词', pos: '词性', meaning: '释义', example: '例句' };
 const headingNames = {
@@ -69,7 +69,7 @@ function splitDeckLine(line) {
   if (columns.length > 1) return columns;
   const bilingual = line.match(/^([A-Za-z][A-Za-z '\u2019-]*?)\s+(?:(\w{1,5}\.)\s*)?([\u3400-\u9fff].*)$/);
   if (bilingual) return [bilingual[1], bilingual[2] || '', bilingual[3]];
-  const tagged = line.match(/^(.+?)\s+((?:n|v|vi|vt|adj|adv|pron|prep|conj)\.)\s+(.+)$/i);
+  const tagged = line.match(/^(.+?)\s+((?:n|v|vi|vt|a|ad|adj|adv|pron|prep|conj)\.)\s+(.+)$/i);
   if (tagged) return tagged.slice(1);
   return [line];
 }

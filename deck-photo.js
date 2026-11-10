@@ -1,7 +1,7 @@
 'use strict';
 
 function findBookColumns(context, width, height) {
-  if (height < width * 1.2) return null;
+  if (height < width * .7) return null;
   const pixels = context.getImageData(0, 0, width, height).data;
   const rows = new Uint16Array(height);
   const left = Math.floor(width * .04);
@@ -15,8 +15,8 @@ function findBookColumns(context, width, height) {
     }
   }
   const paper = (right - left) * .6;
-  const top = rows.findIndex((count, y) => y >= height * .08 && y <= height * .44 && count > paper);
-  let bottom = Math.round(height * .94);
+  const top = rows.findIndex((count, y) => y <= height * .44 && count > paper);
+  let bottom = height - 1;
   while (bottom >= height * .61 && rows[bottom] <= paper) bottom--;
   if (top < 0 || bottom - top < height * .42) return null;
 
@@ -46,15 +46,23 @@ function findBookColumns(context, width, height) {
   return { top, bottom: bottom + 1, split };
 }
 
-function prepareBookColumn(image, area, scale) {
+function preparePhotoRegion(image, area, scale, quarterTurn = 0) {
   const [x, y, width, height] = area.map(value => value * scale);
-  const factor = Math.min(2.5, 2300 / height);
+  const factor = Math.min(2.5, 2300 / Math.max(width, height));
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(width * factor);
-  canvas.height = Math.round(height * factor);
+  const targetWidth = Math.max(1, Math.round(width * factor));
+  const targetHeight = Math.max(1, Math.round(height * factor));
+  canvas.width = quarterTurn ? targetHeight : targetWidth;
+  canvas.height = quarterTurn ? targetWidth : targetHeight;
   const context = canvas.getContext('2d', { willReadFrequently: true });
   context.imageSmoothingQuality = 'high';
-  context.drawImage(image, x, y, width, height, 0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.save();
+  context.translate(quarterTurn < 0 ? 0 : quarterTurn > 0 ? canvas.width : 0, quarterTurn < 0 ? canvas.height : 0);
+  context.rotate(quarterTurn * Math.PI / 2);
+  context.drawImage(image, x, y, width, height, 0, 0, targetWidth, targetHeight);
+  context.restore();
   const data = context.getImageData(0, 0, canvas.width, canvas.height);
   const histogram = new Uint32Array(256);
   for (let i = 0; i < data.data.length; i += 4) {
@@ -70,9 +78,13 @@ function prepareBookColumn(image, area, scale) {
   sum = histogram[high];
   while (sum < cutoff) sum += histogram[--high];
   const spread = Math.max(50, high - low);
+  let median = low;
+  sum = histogram[median];
+  while (sum < canvas.width * canvas.height / 2 && median < 255) sum += histogram[++median];
+  const darkBackground = median < 106 && high - median > 45;
   for (let i = 0; i < data.data.length; i += 4) {
     const gray = (data.data[i] - low) * 255 / spread;
-    data.data[i] = data.data[i + 1] = data.data[i + 2] = gray;
+    data.data[i] = data.data[i + 1] = data.data[i + 2] = darkBackground ? 255 - gray : gray;
   }
   context.putImageData(data, 0, 0);
   return canvas;
@@ -164,6 +176,65 @@ function textbookRows(text) {
   return rows;
 }
 
+function photoRows(text) {
+  const book = textbookRows(text);
+  if (book.length >= 2) return book;
+
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const formatted = [];
+  const standalone = [];
+  const ordered = [];
+  const marked = new Set();
+  let latest;
+  let hasHeading = false;
+  const isTerm = term => termPattern.test(term) && term.length <= 65 && term.split(/ +/).length <= 5;
+  for (const raw of lines) {
+    const line = raw.replace(/^(?:[•●·*] *|\d+[.)、] *)/, '');
+    if (/^(?:unit|lesson|chapter|page)\s*\d+\b|^(?:vocabulary|word list|new words|单词表|词汇表)$/i.test(line)) {
+      hasHeading ||= /^(?:vocabulary|word list|new words|单词表|词汇表)$/i.test(line);
+      continue;
+    }
+    const labelledExample = line.match(/^(?:例句|example(?: sentence)?|e\.g\.)\s*[:：]?\s*(.+)$/i);
+    if (labelledExample && latest) {
+      latest.example ||= labelledExample[1];
+      continue;
+    }
+    const normalized = line.replace(/ +[—–=:：] *|[：:] +/g, '  ').replace(/ +\(((?:n|v|vi|vt|a|ad|adj|adv|prep|conj)\.)\) +/i, ' $1 ');
+    const hasColumns = /[|\t]| {2,}/.test(normalized) || /[\u3400-\u9fff]/.test(normalized);
+    if (hasColumns) {
+      const bilingual = normalized.match(/^([A-Za-z][A-Za-z ’'-]*?) +(?:(\w{1,5}\.) +)?([\u3400-\u9fff].*)$/);
+      const row = bilingual ? {
+        term: bilingual[1], pos: bilingual[2] || '', meaning: bilingual[3], example: ''
+      } : parseDeckText(normalized).rows[0];
+      if (row && isTerm(row.term) && (row.meaning || row.pos)) {
+        formatted.push(row);
+        ordered.push(row);
+        latest = row;
+        continue;
+      }
+    }
+    latest = undefined;
+    if (isTerm(line) && !/\b(?:we|you|they|it|she|he|was|were|are|is)\b/i.test(line) &&
+        (line.split(/ +/).length <= 3 || raw !== line)) {
+      const row = { term: line, pos: '', meaning: '', example: '' };
+      standalone.push(row);
+      ordered.push(row);
+      if (raw !== line) marked.add(row);
+    }
+  }
+
+  // An isolated English fragment in a body paragraph is weak evidence of a vocabulary list.
+  if (standalone.length && (standalone.length >= lines.length * .65 || hasHeading)) return ordered;
+  const accepted = new Set([...formatted, ...marked]);
+  return ordered.filter(row => accepted.has(row));
+}
+
+function formatPhotoRows(rows) {
+  return ['单词\t词性\t释义\t例句', ...rows.map(row => [
+    row.term, row.pos, row.meaning, row.example
+  ].map(value => value.replace(/[\t\r\n]+/g, ' ')).join('\t'))].join('\n');
+}
+
 async function readDeckImage(file, worker, status) {
   const url = URL.createObjectURL(file);
   try {
@@ -187,21 +258,34 @@ async function readDeckImage(file, worker, status) {
       const columns = [];
       for (const [i, area] of areas.entries()) {
         status('正在识别双栏课本 · ' + (i ? '右栏' : '左栏') + '…');
-        const column = prepareBookColumn(image, area, scale);
+        const column = preparePhotoRegion(image, area, scale);
         columns.push((await worker.recognize(column)).data.text);
       }
       const rows = textbookRows(columns.join('\n'));
-      if (rows.length >= 3) {
-        return ['单词\t词性\t释义\t例句', ...rows.map(row => [
-          row.term, row.pos, row.meaning, row.example
-        ].join('\t'))].join('\n');
-      }
-      if (columns.join('\n').split(/\r?\n/).filter(line => line.trim()).length > 28) {
-        throw new Error('检测到双栏，但读不出足够的词条。请尝试裁掉背景，或分栏拍摄。');
+      if (rows.length >= 2) return formatPhotoRows(rows);
+    }
+
+    await worker.setParameters({ tessedit_pageseg_mode: '3' });
+    const area = [0, 0, sample.width, sample.height];
+    status('正在识别词表或截图…');
+    const initial = (await worker.recognize(preparePhotoRegion(image, area, scale))).data;
+    let rows = photoRows(initial.text);
+    let confidence = initial.confidence;
+    const score = (candidates, certainty) => candidates.length ? certainty + Math.min(6, candidates.length) * 10 : 0;
+    if (confidence < 65 || (sample.height > sample.width * 1.35 && rows.length < 2)) {
+      for (const turn of [1, -1]) {
+        status('正在尝试旋转图片后识别…');
+        const result = (await worker.recognize(preparePhotoRegion(image, area, scale, turn))).data;
+        const candidates = photoRows(result.text);
+        if (score(candidates, result.confidence) > score(rows, confidence)) {
+          rows = candidates;
+          confidence = result.confidence;
+        }
+        if (rows.length >= 2 && confidence >= 75) break;
       }
     }
-    await worker.setParameters({ tessedit_pageseg_mode: '3' });
-    return (await worker.recognize(file)).data.text;
+    if (!rows.length || confidence < 50) throw new Error('没找到可确认的词条。可以裁掉背景或只截词表后再试。');
+    return formatPhotoRows(rows);
   } finally {
     URL.revokeObjectURL(url);
   }
