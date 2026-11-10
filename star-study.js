@@ -21,6 +21,23 @@ let cardMove;
 let studySeen = new Set();
 let studyWord;
 let revealed = false;
+let studyBusy = false;
+let motionEpoch = 0;
+let studyHistory = [];
+let gesture = null;
+let swallowClick = false;
+let flightMode = 'swipe';
+try { flightMode = localStorage.getItem('word-accumulator.flight') || 'swipe'; } catch {}
+function cancelStudyMotion() {
+  motionEpoch++;
+  studyBusy = false;
+  gesture = null;
+  studyFace.getAnimations().forEach(a => a.cancel());
+  studyFace.style.transform = '';
+  studyFace.classList.remove('dragging');
+  byId('swipe-verdict').textContent = '';
+}
+
 
 function saveStudy() {
   try {
@@ -36,9 +53,11 @@ function saveStudy() {
 function renderMap() {
   const mastered = studyGroup.words.filter(isMastered).length;
   byId('map-count').textContent = mastered + ' / ' + studyGroup.words.length + ' 已掌握';
-  byId('constellation').replaceChildren(...studyGroup.words.map(word => {
-    const control = button(isMastered(word) ? '★' : '·', () => {
+  byId('constellation').replaceChildren(...studyGroup.words.map((word, index) => {
+    const control = button(isMastered(word) ? '✓' : String(index + 1).padStart(2, '0'), () => {
       if (studyWord === word) return;
+      cancelStudyMotion();
+      studyHistory = [];
       studyQueue = [word, ...studyQueue.filter(item => item !== word)];
       showStudyWord(true);
       byId('study-flip').focus({ preventScroll: true });
@@ -53,6 +72,7 @@ function renderMap() {
 
 function showStudyWord(animate = false) {
   stopSpeech();
+  byId('study-undo').disabled = !studyHistory.length;
   pageTurn?.cancel();
   cardMove?.cancel();
   studyWord = studyQueue[0];
@@ -81,6 +101,8 @@ function showStudyWord(animate = false) {
 }
 
 function startStudy() {
+  cancelStudyMotion();
+  studyHistory = [];
   studySeen = new Set();
   studyFinished = new Set();
   studyQueue = [...studyGroup.words];
@@ -88,7 +110,7 @@ function startStudy() {
 }
 
 function flipStudy() {
-  if (!studyWord) return;
+  if (!studyWord || studyBusy) return;
   pageTurn?.cancel();
   revealed = !revealed;
   studyDetails.hidden = !revealed;
@@ -112,41 +134,139 @@ function flipStudy() {
   }
 }
 
-function rateStudy(rating) {
-  if (!studyWord) return;
+async function rateStudy(rating) {
+  if (!studyWord || studyBusy) return;
+  studyBusy = true;
+  const epoch = ++motionEpoch;
+  const direction = rating === 1 ? -1 : 1;
+  if (!reduceMotion.matches && studyFace.animate) {
+    const initial = studyFace.style.transform || 'translateX(0) rotate(0deg)';
+    const anim = studyFace.animate([
+      { transform: initial, opacity: 1 },
+      { transform: `translateX(${direction * Math.min(innerWidth, 600)}px) rotate(${direction * 16}deg)`, opacity: 0 }
+    ], { duration: 280, easing: 'cubic-bezier(.4,0,.8,.5)', fill: 'forwards' });
+    try { await anim.finished; } catch {}
+    if (epoch !== motionEpoch) return;
+    anim.cancel();
+  }
+  studyFace.style.transform = '';
+  byId('swipe-verdict').textContent = '';
+  studyHistory.push({ queue: [...studyQueue], seen: new Set(studySeen), finished: new Set(studyFinished) });
+  if (studyHistory.length > 30) studyHistory.shift();
   const word = studyQueue.shift();
   const key = wordKey(word);
-  if (rating < 3 && !studySeen.has(key)) {
-    studyQueue.splice(rating === 1 ? 3 : studyQueue.length, 0, word);
-  } else {
-    studyFinished.add(key);
-  }
+  if (rating < 3 && !studySeen.has(key)) studyQueue.splice(rating === 1 ? 3 : studyQueue.length, 0, word);
+  else studyFinished.add(key);
   studySeen.add(key);
-  showStudyWord(true);
+  showStudyWord();
+  if (!reduceMotion.matches && studyFace.animate) {
+    const anim = studyFace.animate([{ transform: 'translateY(18px) scale(.96)', opacity: .4 }, { transform: 'translateY(0) scale(1)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    try { await anim.finished; } catch {}
+  }
+  if (epoch !== motionEpoch) return;
+  studyBusy = false;
   if (!studyWord) byId('study-match').focus({ preventScroll: true });
 }
 
 function flashMatch(from, to) {
   if (reduceMotion.matches || !Element.prototype.animate) return;
-  const a = from.getBoundingClientRect();
-  const b = to.getBoundingClientRect();
-  const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
-  const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+  const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+  const dx = b.left + b.width / 2 - a.left - a.width / 2;
+  const dy = b.top + b.height / 2 - a.top - a.height / 2;
   const flash = document.createElement('span');
-  flash.className = 'match-flash';
+  flash.className = 'match-flash orbital-link';
   flash.setAttribute('aria-hidden', 'true');
-  flash.style.left = a.left + a.width / 2 + 'px';
-  flash.style.top = a.top + a.height / 2 + 'px';
-  flash.style.width = Math.hypot(dx, dy) + 'px';
-  const angle = 'rotate(' + Math.atan2(dy, dx) + 'rad)';
+  Object.assign(flash.style, { left: a.left + a.width / 2 + 'px', top: a.top + a.height / 2 + 'px', width: Math.hypot(dx, dy) + 'px' });
+  const angle = `rotate(${Math.atan2(dy, dx)}rad)`;
   document.body.append(flash);
   const animation = flash.animate([
     { transform: angle + ' scaleX(0)', opacity: 0 },
-    { transform: angle + ' scaleX(1)', opacity: 1, offset: .4 },
+    { transform: angle + ' scaleX(1)', opacity: 1, offset: .32 },
+    { transform: angle + ' scaleX(1)', opacity: .9, offset: .7 },
     { transform: angle + ' scaleX(1)', opacity: 0 }
-  ], { duration: 240, easing: 'ease-out' });
-  animation.onfinish = animation.oncancel = () => flash.remove();
+  ], { duration: 900, easing: 'ease-out' });
+  animation.finished.catch(() => {}).finally(() => flash.remove());
+  setTimeout(() => flash.remove(), 1200);
+  for (const node of [from, to]) node.animate([
+    { transform: 'scale(1)', boxShadow: '0 0 0 0 #8ce4ff66' },
+    { transform: 'scale(.96)', boxShadow: '0 0 0 8px #8ce4ff22', offset: .4 },
+    { transform: 'scale(1)', boxShadow: '0 0 0 16px #8ce4ff00' }
+  ], { duration: 650, easing: 'ease-out' });
 }
+let celebrationTimer;
+function showMatchCelebration() {
+  clearTimeout(celebrationTimer);
+  const finishedRound = round;
+  celebrationTimer = setTimeout(() => {
+    if (round === finishedRound && mode === 'match' && matched.size === round.length && round.length && !celebration.open) celebration.showModal();
+  }, reduceMotion.matches ? 0 : 950);
+}
+byId('study-focus').addEventListener('click', () => {
+  const focused = document.body.classList.toggle('focus-study');
+  byId('study-focus').setAttribute('aria-pressed', String(focused));
+  byId('study-focus').textContent = focused ? '↙ 退出沉浸' : '⤢ 沉浸';
+  byId('study').scrollIntoView({ block: 'start', behavior: 'instant' });
+});
+byId('celebration-next').addEventListener('click', () => { celebration.close(); startMatch(); });
+byId('study-undo').addEventListener('click', () => {
+  if (studyBusy || !studyHistory.length) return;
+  cancelStudyMotion();
+  const previous = studyHistory.pop();
+  studyQueue = previous.queue; studySeen = previous.seen; studyFinished = previous.finished;
+  showStudyWord(true);
+});
+function setFlight(value) {
+  cancelStudyMotion();
+  flightMode = value === 'classic' ? 'classic' : 'swipe';
+  document.body.dataset.flight = flightMode;
+  document.querySelectorAll('[data-flight]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.flight === flightMode)));
+  byId('gesture-guide').textContent = flightMode === 'swipe' ? '← 左划再复习 · 轻点展开 · 右划认识 →' : '轻点展开释义 · 用下方按钮选择熟悉程度';
+  try { localStorage.setItem('word-accumulator.flight', flightMode); } catch {}
+}
+document.querySelectorAll('[data-flight]').forEach(el => el.addEventListener('click', () => setFlight(el.dataset.flight)));
+setFlight(flightMode);
+studyFace.addEventListener('pointerdown', event => {
+  if (flightMode !== 'swipe' || !studyWord || studyBusy || !event.isPrimary || event.button !== 0 || event.target.closest('#study-speak, a')) return;
+  swallowClick = false;
+  gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, horizontal: false };
+});
+studyFace.addEventListener('pointermove', event => {
+  if (!gesture || gesture.id !== event.pointerId) return;
+  const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
+  if (!gesture.horizontal) {
+    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { gesture = null; return; }
+    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    gesture.horizontal = true;
+    studyFace.setPointerCapture(event.pointerId);
+    studyFace.classList.add('dragging');
+  }
+  gesture.dx = dx;
+  studyFace.style.transform = `translateX(${dx}px) rotate(${Math.max(-12, Math.min(12, dx / 22))}deg)`;
+  byId('swipe-verdict').textContent = dx > 0 ? '认识 →' : '← 再复习';
+  byId('swipe-verdict').dataset.direction = dx > 0 ? 'right' : 'left';
+});
+function endGesture(event, canceled = false) {
+  if (!gesture || gesture.id !== event.pointerId) return;
+  const { dx, horizontal } = gesture;
+  gesture = null;
+  studyFace.classList.remove('dragging');
+  if (studyFace.hasPointerCapture(event.pointerId)) studyFace.releasePointerCapture(event.pointerId);
+  swallowClick = horizontal;
+  if (!canceled && horizontal && Math.abs(dx) > Math.min(100, studyFace.clientWidth * .23)) rateStudy(dx > 0 ? 3 : 1);
+  else {
+    const transform = studyFace.style.transform;
+    studyFace.style.transform = '';
+    byId('swipe-verdict').textContent = '';
+    if (horizontal && !reduceMotion.matches) studyFace.animate([{ transform }, { transform: 'translateX(0) rotate(0deg)' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+}
+studyFace.addEventListener('pointerup', event => endGesture(event));
+studyFace.addEventListener('pointercancel', event => endGesture(event, true));
+studyFace.addEventListener('lostpointercapture', event => endGesture(event, true));
+studyFace.addEventListener('click', event => {
+  if (swallowClick) { event.preventDefault(); event.stopImmediatePropagation(); swallowClick = false; }
+}, true);
+document.addEventListener('visibilitychange', () => { if (document.hidden) cancelStudyMotion(); });
 
 for (const [i, group] of studyGroups.entries()) groupControl.add(new Option(group.topic + ' · 第 ' + group.number + ' 组', i));
 groupControl.value = String(studyGroups.indexOf(studyGroup));
@@ -179,9 +299,9 @@ document.addEventListener('keydown', event => {
   if (event.code === 'Space' && (!event.target.closest('button') || event.target.id === 'study-flip' || event.target.matches('[data-rating]'))) {
     event.preventDefault();
     flipStudy();
-  } else if (['1', '2', '3'].includes(event.key) && studyWord) {
+  } else if (['1', '2', '3', 'ArrowLeft', 'ArrowRight'].includes(event.key) && studyWord) {
     event.preventDefault();
-    rateStudy(Number(event.key));
+    rateStudy(event.key === 'ArrowLeft' ? 1 : event.key === 'ArrowRight' ? 3 : Number(event.key));
   }
 });
 

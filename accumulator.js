@@ -351,7 +351,7 @@ function startMatch() {
         const result = '全部配对完成，本轮新点亮 ' + newStars + ' 颗星。';
         const missedNote = missed.length ? '曾配错、本轮未获新星：' + missed.join('、') + '。' : '';
         feedback('match-feedback', result + missedNote + '按 Enter 可以换一轮。', missed.length ? '' : 'good');
-        if (!mistakes.size) celebration.showModal();
+        if (!mistakes.size) showMatchCelebration();
       }
     }));
   }
@@ -456,7 +456,7 @@ function scopeLabel(scope) {
 const studioModes = {
   study: ['01 / FLASHCARDS', '背词卡', '选一个词组，先回忆词义，再翻卡确认。'],
   browse: ['02 / WORD INDEX', '查词', '按主题浏览，或者搜索单词和中文释义。'],
-  match: ['03 / MATCHING', '连星配对', '每轮最多 10 对。把单词与释义连起来。'],
+  match: ['03 / MATCHING', '轨道配对', '每轮最多 10 对。把单词与释义连起来。'],
   spell: ['04 / SPELLING', '拼写', '根据词义填字母，按 Enter 提交，再按一次进入下一题。'],
   quiz: ['05 / IN CONTEXT', '句子选择', '根据上下文选词，提交后查看答案解析。']
 };
@@ -478,6 +478,8 @@ function refresh(focusSpelling = true) {
 
 function activateMode(nextMode, focusSpelling = true) {
   mode = nextMode;
+  document.body.dataset.mode = mode;
+  if (typeof cancelStudyMotion === 'function') cancelStudyMotion();
   if (mode !== 'study') stopSpeech();
   const [kicker, title, description] = studioModes[mode];
   byId('studio-mode').textContent = title;
