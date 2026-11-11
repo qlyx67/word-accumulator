@@ -295,7 +295,7 @@ for (const control of ratingControls) {
 }
 document.addEventListener('keydown', event => {
   if (mode !== 'study' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
-      (help.open || deckDialog.open) || event.target.closest('input, select, textarea, [contenteditable], summary, a')) return;
+      document.querySelector('dialog[open]') || event.target.closest('input, select, textarea, [contenteditable], summary, a')) return;
   if (event.code === 'Space' && (!event.target.closest('button') || event.target.id === 'study-flip' || event.target.matches('[data-rating]'))) {
     event.preventDefault();
     flipStudy();

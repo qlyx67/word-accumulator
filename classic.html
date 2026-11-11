@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>单词累积器 · Word Accumulator</title>
+
+<script>const words = [];</script>
+<script defer src="words-01.js"></script>
+<script defer src="words-02.js?v=5"></script>
+<script defer src="words-03.js?v=5"></script>
+<script defer src="words-04.js"></script>
+<script defer src="words-05.js"></script>
+<script defer src="words-06.js"></script>
+<script defer src="words-07.js"></script>
+<script defer src="words-08.js?v=5"></script>
+<script defer src="words-09.js"></script>
+<script defer src="words-10.js"></script>
+<script defer src="words-11.js"></script>
+<script defer src="words-12.js?v=5"></script>
+<script defer src="extra-examples.js"></script>
+<script defer src="word-audit.js"></script>
+<script defer src="deck-photo.js?v=3"></script>
+<script defer src="custom-decks.js?v=5"></script>
+<script defer src="accumulator.js?v=orbit1"></script>
+<script defer src="sentence-quiz.js?v=decks1"></script>
+<link rel="stylesheet" href="star-study.css?v=panels1">
+<link rel="stylesheet" href="orbit.css?v=1">
+<script defer src="pronunciation.js?v=1"></script>
+<script defer src="pronunciation-audit.js?v=1"></script>
+<script defer src="studio-audio.js?v=decks1"></script>
+<script defer src="star-study.js?v=orbit1"></script>
+<script defer src="filter-panels.js?v=1"></script>
+</head>
+<body><div class="studio-shell">
+<aside class="studio-rail" aria-label="导航">
+  <div class="studio-brand"><span class="brand-mark" aria-hidden="true">◎</span><div><strong>单词累积器</strong><small>WORD ACCUMULATOR</small></div></div>
+  <div class="rail-label">学习工作台</div>
+  <nav aria-label="练习模式">
+    <button type="button" data-mode="study" aria-pressed="true"><span aria-hidden="true">◇</span> 背词卡</button>
+    <button type="button" data-mode="browse" aria-pressed="false"><span aria-hidden="true">⌕</span> 查词</button>
+    <button type="button" data-mode="match" aria-pressed="false"><span aria-hidden="true">⇄</span> 轨道配对</button>
+    <button type="button" data-mode="spell" aria-pressed="false"><span aria-hidden="true">Aa</span> 拼写</button>
+    <button type="button" data-mode="quiz" aria-pressed="false"><span aria-hidden="true">≡</span> 句子选择</button>
+  </nav>
+  <div class="rail-credit">make by lyxx</div>
+</aside>
+<main>
+<div class="studio-top"><span>学习工作台 <b>/</b> <strong id="studio-mode">背词卡</strong></span><button id="help-open" type="button">? 操作说明</button></div>
+<header class="acc-hero"><div class="orbital-art" aria-hidden="true"><i></i><i></i><i></i><span></span></div>
+  <div class="hero-copy"><div class="eyebrow" id="studio-kicker">01 / FLASHCARDS</div><h1 id="studio-title">背词卡</h1><p id="studio-description">选一个词组，先回忆词义，再翻卡确认。</p></div>
+  <div class="hero-progress"><span class="eyebrow">当前词库进度</span><div class="hero-metrics"><div><strong id="mastered-count">—</strong><span>已掌握</span></div><div><strong id="unmastered-percent">—</strong><span>待掌握</span></div></div></div>
+  <div class="hero-art">
+    <svg viewBox="0 0 232 174" shape-rendering="crispEdges" aria-hidden="true">
+      <defs>
+        <clipPath id="glass-top"><path d="M45 23H187V48H178V60H165V68H150V77H133V86H99V77H82V68H67V60H54V48H45Z"/></clipPath>
+        <clipPath id="glass-bottom"><path d="M99 87H133V96H150V105H165V113H178V125H187V150H45V125H54V113H67V105H82V96H99Z"/></clipPath>
+        <pattern id="grains" width="16" height="12" patternUnits="userSpaceOnUse"><rect width="16" height="12" fill="#b98046"/><rect x="3" y="2" width="2" height="2" fill="#e7bb6b"/><rect x="11" y="8" width="2" height="2" fill="#d39548"/></pattern>
+      </defs>
+      <path d="M36 17H196V49H187V62H174V72H158V81H142V92H158V102H174V112H187V124H196V156H36V124H45V112H58V102H74V92H90V81H74V72H58V62H45V49H36Z" fill="#927042"/>
+      <path d="M45 23H187V48H178V60H165V68H150V77H133V96H150V105H165V113H178V125H187V150H45V125H54V113H67V105H82V96H99V77H82V68H67V60H54V48H45Z" fill="#31584c"/>
+      <rect x="42" y="87" width="148" height="63" fill="#9bc4b4" clip-path="url(#glass-bottom)"/>
+      <rect id="sand-top" x="42" y="23" width="148" height="63" fill="url(#grains)" clip-path="url(#glass-top)"/>
+      <rect id="sand-bottom" x="42" y="150" width="148" height="0" fill="url(#grains)" clip-path="url(#glass-bottom)"/>
+      <path d="M24 10H208V17H215V25H17V17H24ZM17 149H215V157H208V164H24V157H17Z" fill="#bd8a49"/>
+      <path d="M24 10H208V14H24ZM24 153H208V157H24Z" fill="#ebc78a"/>
+      <path d="M29 25H36V149H29ZM196 25H203V149H196Z" fill="#bd8a49"/>
+      <path d="M31 32H33V141H31ZM198 32H200V141H198Z" fill="#ebc78a"/>
+    </svg>
+  </div>
+</header>
+
+<div class="study-controls" aria-label="词库与筛选">
+  <div class="deck-bar"><div class="control-symbol" aria-hidden="true">▤</div><div class="select-field"><label for="deck-select">学习词库</label><select id="deck-select"></select></div><button type="button" class="primary" id="deck-import">＋ 导入词库</button></div>
+  <div class="toolbar" id="word-toolbar" hidden><div class="select-field"><label for="topic">主题范围</label><select id="topic"><option value="">全部主题</option></select></div><div class="select-field filter-control"><label for="word-filter">练习筛选</label><select id="word-filter"></select></div><div class="filter-stats"><span class="tag" id="count"></span><span class="word-stars" id="progress" aria-live="polite"></span></div></div>
+</div>
+<details class="card scope-picker" id="practice-scope" hidden>
+<summary>练习范围 <span class="scope-chip" id="scope-summary"></span></summary>
+<p class="muted">可以跨主题勾选多组。未勾选时，使用上方「主题」选定的范围。</p>
+<div class="scope-list" id="scope-list"></div>
+<div class="actions"><button type="button" id="scope-clear">清除所选分组</button></div>
+</details>
+<div class="exercise-layout browsing" id="exercise-layout"><div>
+<section id="study" class="star-study" aria-label="背词卡">
+<div class="card study-card">
+<div class="flight-toolbar"><button type="button" id="study-focus" aria-pressed="false">⤢ 沉浸</button><div class="flight-label"><span class="live-dot"></span> ORBIT / 记忆航行</div><div class="flight-options" aria-label="背词方式"><button type="button" data-flight="swipe" aria-pressed="true">滑动卡</button><button type="button" data-flight="classic" aria-pressed="false">按钮卡</button></div></div>
+  <div class="study-meta"><span class="eyebrow" id="study-batch">本组词卡</span><span id="study-count" class="tag" aria-live="polite"></span></div>
+  <progress id="study-progress" aria-label="本组词卡进度" max="30" value="0"></progress>
+  <div class="card-orbit"><div class="orbit-underlay" aria-hidden="true"></div><div class="flashcard-face" id="study-face"><span id="swipe-verdict" aria-hidden="true"></span>
+    <div class="flashcard-top"><span id="study-index" class="eyebrow">WORD CARD</span><button type="button" id="study-speak" aria-label="播放英语发音">◖)) 发音</button></div>
+    <button type="button" id="study-flip" aria-controls="study-details" aria-expanded="false"><strong id="study-word" lang="en"></strong><span class="tag" id="study-hint"></span></button>
+    <div id="study-details" hidden><p id="study-meaning"></p><p id="study-example" lang="en"></p><a id="study-source" class="tag" hidden></a></div>
+    <span id="speech-status" class="tag" role="status"></span>
+  </div>
+  </div><p class="gesture-guide" id="gesture-guide">← 左划再复习 · 轻点展开 · 右划认识 →</p>
+  <div class="study-ratings" aria-label="自评"><button type="button" data-rating="1"><kbd>←</kbd> 再复习</button><button type="button" data-rating="2"><kbd>2</kbd> 模糊</button><button type="button" data-rating="3">认识 <kbd>→</kbd></button></div>
+  <div class="actions study-actions"><button type="button" id="study-undo" disabled>↶ 撤销上张</button><button type="button" id="study-restart" hidden>再背本组</button><button type="button" class="primary" id="study-match">练习本组配对 <span aria-hidden="true">↗</span></button></div>
+</div>
+<aside class="card map-panel">
+  <div class="map-head"><div><span class="eyebrow">MEMORY ORBIT</span><h2>本组航线</h2></div><span id="map-count" class="tag"></span></div>
+  <label for="map-group">学习分组</label><select id="map-group"></select>
+  <div class="map-field"><svg viewBox="0 0 280 180" preserveAspectRatio="none" aria-hidden="true"><path d="M26 20 70 50 113 29 168 58 210 22 254 43M20 89 63 111 109 78 163 99 209 84 260 105M24 152 62 134 109 163 158 134 213 158 256 139M70 50 63 111 62 134M168 58 163 99 158 134M210 22 209 84 213 158"/></svg><div id="constellation" aria-label="本组单词航线"></div></div>
+  <p class="tag">点编号跳转词卡。配对、拼写都通过后，航点点亮。</p>
+</aside>
+</section>
+<section class="card" id="browse" aria-label="查词" hidden>
+<div class="panel-heading"><span class="eyebrow">WORD INDEX</span><h2>搜索词汇</h2></div><label class="sr-only" for="search">搜索词汇</label><input id="search" type="search" placeholder="输入英文单词或中文释义">
+<div class="workspace">
+<div class="word-pane"><div class="words" id="word-list"></div><p id="empty" hidden>没有找到符合条件的词。</p></div>
+<aside class="card detail" aria-label="词条详情"><h2 id="detail-word">选择一个单词</h2><p class="tag" id="detail-pos"></p><p id="detail-meaning"></p><p class="word-stars" id="detail-stars"></p><div id="example-block" hidden><h3>例句</h3><p lang="en" id="detail-example"></p><a id="example-source" class="tag" hidden></a></div></aside>
+</div>
+</section>
+<section class="card" id="match" hidden aria-label="配对">
+<div class="panel-heading match-heading"><div><span class="eyebrow">MATCH ROUND</span><h2>英汉配对</h2></div><span class="scope-chip" id="match-range"></span></div>
+<p class="muted">先选英文，再选对应的中文。</p>
+<div class="pair-labels"><span>EN · 单词</span><span>中 · 释义</span></div>
+<div class="pairs"><div id="english" aria-label="英文选项"></div><div id="chinese" aria-label="中文选项"></div></div>
+<p class="feedback" id="match-feedback" aria-live="polite"></p><button class="primary" id="new-round">换一轮</button>
+</section>
+<section class="card" id="spell" hidden aria-label="拼写">
+<div class="panel-heading"><span class="eyebrow">SPELLING</span><h2>看释义拼单词</h2></div><p id="spell-clue"></p><p class="muted" id="spell-hint"></p>
+<form id="spell-form">
+<label class="spell-input"><span class="letters" id="typed-letters" aria-hidden="true"></span><input id="answer" aria-label="英文拼写" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<div id="correction" hidden><p class="answer-label">正确拼写（逐字对照）</p><div class="letters" id="correct-letters"></div></div>
+<div class="actions"><button class="primary" id="submit">提交</button></div>
+</form>
+<p class="feedback" id="spell-feedback" aria-live="polite"></p>
+</section>
+<section class="card" id="quiz" hidden aria-label="句子选择">
+<div class="panel-heading"><span class="eyebrow">IN CONTEXT</span><h2>句子选词</h2></div><p class="tag" id="quiz-mode"></p>
+<p id="quiz-prompt" lang="en"></p>
+<div id="quiz-options" class="quiz-options"></div>
+<p class="feedback" id="quiz-feedback" aria-live="polite"></p>
+<div id="quiz-explanation" class="quiz-explanation" hidden>
+<h3>答案解析</h3><p id="quiz-part"></p><p id="quiz-reason"></p><ul id="quiz-meanings"></ul>
+</div>
+<div class="actions"><button id="quiz-next" class="primary" hidden>下一题</button><button id="quiz-all" hidden>回到全部句子</button></div>
+</section>
+</div>
+<aside class="card wrong-side" id="wrong-side" hidden aria-labelledby="wrong-title">
+<h2 id="wrong-title">错题本</h2><div class="wrong-columns"><section><h3>单词 <span class="tag" id="wrong-count"></span></h3>
+<p class="muted" id="wrong-empty">当前范围还没有错词。答错的词会自动记在这里。</p>
+<div class="wrong-actions">
+<button type="button" data-review="match">错词配对</button>
+<button type="button" data-review="spell">错词拼写</button>
+</div>
+<ol class="wrong-list" id="wrong-list"></ol></section>
+<section><h3>句子 <span class="tag" id="sentence-count"></span></h3>
+<p class="muted" id="sentence-empty">还没有句子错题。</p>
+<button type="button" id="sentence-review">重做句子错题</button>
+<ol class="wrong-list sentence-list" id="sentence-list"></ol></section></div>
+</aside></div>
+<dialog id="deck-dialog" class="deck-dialog" aria-labelledby="deck-title">
+<div class="panel-heading"><span class="eyebrow">PERSONAL VOCABULARY</span><h2 id="deck-title">导入我的词库</h2></div>
+<label class="deck-label" for="deck-name">词库名称</label><input id="deck-name" maxlength="60" placeholder="例如 管理学第 1–3 章">
+<label class="deck-label" for="deck-text">粘贴词表，或先读取文件</label>
+<textarea id="deck-text" rows="5" placeholder="一行一词，或用制表符、竖线分列&#10;allocate | v. | 分配 | We allocate time for each task.&#10;habitat"></textarea>
+<div class="deck-upload"><label for="deck-file">选择截图或文档（可多选）</label><input id="deck-file" type="file" multiple accept="image/*,.txt,.csv,.tsv,.docx,.pdf"></div>
+<p class="tag">支持图片、TXT、CSV、TSV、DOCX 和可选中文字的 PDF。文件在浏览器读取。优先保留原文中的词性、释义和例句。</p>
+<label class="lookup-toggle"><input type="checkbox" id="deck-lookup" checked> 用词典补齐缺失项 <span class="tag">只发送待查的单词</span></label>
+<div class="actions"><button type="button" id="deck-preview" class="primary">生成预览</button><button type="button" id="deck-close">关闭</button></div>
+<p class="tag" id="deck-status" role="status"></p>
+<div id="deck-review" hidden><h3>确认词条</h3><p class="tag">可以修改每一项。没有释义的词可背词卡，补上释义后才能用于配对和拼写。</p><div id="deck-rows"></div><button type="button" class="primary" id="deck-save">保存并切换词库</button></div>
+</dialog>
+<dialog class="studio-help" id="studio-help" aria-labelledby="help-title">
+<div class="panel-heading"><span class="eyebrow">QUICK GUIDE</span><h2 id="help-title">操作说明 · 触屏与键盘</h2></div>
+<p>背词卡：滑动卡模式下，左划再复习、右划认识；小幅拖动松手会回弹，上下滑动仍可滚动页面。也可切换按钮卡。撤销可以回到上张。每组最多 30 词。点卡片或按空格看释义，也可以直接点按钮或按 1 / 2 / 3 自评。不会的词稍后再出现，有点印象的排到队尾，每词最多追加一次。</p>
+<p>发音：点「发音」播放英语语音。轨道配对：每轮最多 10 对，先点英文、再点释义，也可用 Tab 和 Enter 操作按钮。拼写：输入后按 Enter 提交，再按一次进下一题。句子选择：点选项立即看解析。</p>
+<p>沉浸：收起标题与分组面板，专注当前词卡；再点一次即可退出。</p><p>学习词库：用顶部「学习词库」切换。各词库独立保存星星和错题。</p>
+<p>航线：点编号可打开对应词卡。自评只改变复习顺序，配对和拼写都答对才算掌握。词卡位置保存在当前浏览器。</p>
+<form method="dialog"><button class="primary">开始学习</button></form></dialog>
+<p class="save-note" id="save-note">进度只保存在当前浏览器。换设备、换浏览器或清除网站数据后，需要重新开始。</p>
+<dialog class="celebration" id="match-celebration" aria-labelledby="celebration-title">
+<div class="celebration-inner">
+
+<h2 id="celebration-title">你太棒啦！</h2>
+<div class="completion-orbit" aria-hidden="true"><i></i><i></i><strong>✓</strong></div><p class="eyebrow">ORBIT COMPLETE</p>
+<p>本轮全部一次配对正确。每一次回忆，都在留下轨迹。</p>
+<form method="dialog"><button type="button" class="primary" id="celebration-next" autofocus>开启下一轮 →</button><button>留在本轮</button></form>
+<p class="tag">点卡片外的空白处也可以关闭</p>
+</div>
+</dialog>
+<footer>词头按雅思词汇 PDF 的 22 个主题整理。扩充释义来自 <a href="https://github.com/skywind3000/ECDICT">ECDICT</a>（<a href="ECDICT-LICENSE.txt">MIT</a>），部分例句来自 <a href="https://tatoeba.org/">Tatoeba</a>（<a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a>）。星星保存在当前浏览器。</footer>
+</main></div></body></html>
