@@ -8,9 +8,9 @@ function harness(animated = false) {
   let pending = [];
   const context = vm.createContext({
     studyWord:a, studyQueue:[a,b,c], studySeen:new Set(), studyFinished:new Set(), studyHistory:[],
-    studyBusy:false, motionEpoch:0, innerWidth:390, reduceMotion:{matches:!animated},
+    CustomEvent:class {}, studyBusy:false, motionEpoch:0, innerWidth:390, reduceMotion:{matches:!animated},
     byId:() => ({textContent:'',focus(){}}), wordKey:w=>w.term,
-    studyFace:{style:{},animate(){ let resolve; const finished=new Promise(r=>resolve=r); pending.push(resolve); return {finished,cancel(){resolve();}};}},
+    studyFace:{style:{},dispatchEvent(){},animate(){ let resolve; const finished=new Promise(r=>resolve=r); pending.push(resolve); return {finished,cancel(){resolve();}};}},
     showStudyWord(){context.studyWord=context.studyQueue[0];},
   });
   vm.runInContext(rate,context);

@@ -19,7 +19,6 @@
   document.body.classList.add('spatial');
   const sky = document.createElement('div');
   sky.className = 'space-scene'; sky.setAttribute('aria-hidden','true');
-  sky.innerHTML = '<div class="space-stars"></div><div class="space-horizon"></div><div class="space-orbit"></div>';
   document.body.prepend(sky);
   const mast = document.createElement('header');
   mast.className = 'space-mast';
@@ -117,7 +116,7 @@
     const end=side==='left'?'translateX(-105%)':side==='right'?'translateX(105%)':'translateY(105%)';
     document.body.removeAttribute('data-space-panel');
     closing=(async()=>{
-      if(!reduced.matches){try{await surface.animate([{transform:'none',opacity:1},{transform:end,opacity:.6}],{duration:300,easing:'cubic-bezier(.4,0,1,1)'}).finished;}catch{}}
+      if(!reduced.matches){try{await surface.animate([{transform:'none',opacity:1},{transform:end,opacity:.6}],{duration:215,easing:'cubic-bezier(.4,0,1,1)'}).finished;}catch{}}
       d.close();activeDialog=null;
       opener?.focus({preventScroll:true});opener=null;
     })().finally(()=>{closing=null;});
@@ -136,7 +135,7 @@
     document.dispatchEvent(new Event('study-controls-updated'));
     const side=d.dataset.side;
     const start=side==='left'?'translateX(-105%)':side==='right'?'translateX(105%)':'translateY(105%)';
-    if(!reduced.matches)d.querySelector('.space-panel-surface').animate([{transform:start,opacity:.5},{transform:'none',opacity:1}],{duration:600,easing:'cubic-bezier(.16,1,.3,1)'});
+    if(!reduced.matches)d.querySelector('.space-panel-surface').animate([{transform:start,opacity:.5},{transform:'none',opacity:1}],{duration:390,easing:'cubic-bezier(.16,1,.3,1)'});
   }
   for (const control of document.querySelectorAll('[data-space-panel]')) {
     control.setAttribute('aria-haspopup', 'dialog');
@@ -165,7 +164,7 @@
     if(mode!==previousMode){
       const oldIndex=modeOrder.indexOf(previousMode),newIndex=modeOrder.indexOf(mode);
       previousMode=mode;modeAnimation?.cancel();
-      if(!reduced.matches)modeAnimation=$('#'+mode).animate([{transform:`translateX(${newIndex>oldIndex?75:-75}px) scale(.975)`,opacity:0},{transform:'none',opacity:1}],{duration:650,easing:'cubic-bezier(.16,1,.3,1)'});
+      if(!reduced.matches)modeAnimation=$('#'+mode).animate([{transform:`translateX(${newIndex>oldIndex?30:-30}px) scale(.99)`,opacity:0},{transform:'none',opacity:1}],{duration:320,easing:'cubic-bezier(.16,1,.3,1)'});
       window.scrollTo({top:0,behavior:'instant'});
     }
   }
@@ -180,7 +179,10 @@
   const help = $('#studio-help');
   const guide=document.createElement('p');
   guide.textContent='新版空间导航：底部「词库」从左侧打开分组与筛选；「练习」展开配对、拼写、句子选择；「错题」从右侧打开。点空白、关闭按钮或 Esc 返回。小按钮保留至少 44 像素的触控区域。';
-  help.querySelector('.panel-heading').after(guide);
+  const motionSetting = document.createElement('label');
+  motionSetting.className = 'space-motion-setting';
+  motionSetting.innerHTML = '<input id="space-motion-toggle" type="checkbox" checked> 动态星空';
+  help.querySelector('.panel-heading').after(guide, motionSetting);
   for (const paragraph of help.querySelectorAll('p')) {
     if (paragraph.textContent.startsWith('学习词库：')) {
       paragraph.textContent = '用底部「词库」切换内置或自建词库，各词库独立保存星星和错题。';

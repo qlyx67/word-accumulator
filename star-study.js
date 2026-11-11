@@ -25,19 +25,27 @@ let studyBusy = false;
 let motionEpoch = 0;
 let studyHistory = [];
 let gesture = null;
+let gestureFrame = 0;
+let settleAnimation;
+const swipeVerdict = byId('swipe-verdict');
 let swallowClick = false;
 let flightMode = 'swipe';
 try { flightMode = localStorage.getItem('word-accumulator.flight') || 'swipe'; } catch {}
 function cancelStudyMotion() {
   motionEpoch++;
   studyBusy = false;
+  const pointer = gesture?.id;
   gesture = null;
+  cancelAnimationFrame(gestureFrame);
+  gestureFrame = 0;
+  if (pointer !== undefined && studyFace.hasPointerCapture(pointer)) {
+    studyFace.releasePointerCapture(pointer);
+  }
   studyFace.getAnimations().forEach(a => a.cancel());
   studyFace.style.transform = '';
   studyFace.classList.remove('dragging');
-  byId('swipe-verdict').textContent = '';
+  swipeVerdict.textContent = '';
 }
-
 
 function saveStudy() {
   try {
@@ -50,24 +58,36 @@ function saveStudy() {
   } catch {}
 }
 
+let renderedMapGroup;
 function renderMap() {
-  const mastered = studyGroup.words.filter(isMastered).length;
-  byId('map-count').textContent = mastered + ' / ' + studyGroup.words.length + ' 已掌握';
-  byId('constellation').replaceChildren(...studyGroup.words.map((word, index) => {
-    const control = button(isMastered(word) ? '✓' : String(index + 1).padStart(2, '0'), () => {
-      if (studyWord === word) return;
-      cancelStudyMotion();
-      studyHistory = [];
-      studyQueue = [word, ...studyQueue.filter(item => item !== word)];
-      showStudyWord(true);
-      byId('study-flip').focus({ preventScroll: true });
-    });
-    control.classList.toggle('lit', isMastered(word));
+  const map = byId('constellation');
+  if (renderedMapGroup !== studyGroup) {
+    renderedMapGroup = studyGroup;
+    map.replaceChildren(...studyGroup.words.map(word => {
+      const control = button('', () => {
+        if (studyWord === word) return;
+        cancelStudyMotion();
+        studyHistory = [];
+        studyQueue = [word, ...studyQueue.filter(item => item !== word)];
+        showStudyWord(true);
+        byId('study-flip').focus({ preventScroll: true });
+      });
+      control.title = word.term;
+      return control;
+    }));
+  }
+  let mastered = 0;
+  studyGroup.words.forEach((word, index) => {
+    const control = map.children[index];
+    const lit = isMastered(word);
+    const caption = lit ? '✓' : String(index + 1).padStart(2, '0');
+    if (lit) mastered++;
+    if (control.textContent !== caption) control.textContent = caption;
+    control.classList.toggle('lit', lit);
     control.setAttribute('aria-current', String(word === studyWord));
-    control.setAttribute('aria-label', word.term + (isMastered(word) ? '，已掌握' : '，未掌握'));
-    control.title = word.term;
-    return control;
-  }));
+    control.setAttribute('aria-label', word.term + (lit ? '，已掌握' : '，未掌握'));
+  });
+  byId('map-count').textContent = mastered + ' / ' + studyGroup.words.length + ' 已掌握';
 }
 
 function showStudyWord(animate = false) {
@@ -144,7 +164,7 @@ async function rateStudy(rating) {
     const anim = studyFace.animate([
       { transform: initial, opacity: 1 },
       { transform: `translateX(${direction * Math.min(innerWidth, 600)}px) rotate(${direction * 16}deg)`, opacity: 0 }
-    ], { duration: 280, easing: 'cubic-bezier(.4,0,.8,.5)', fill: 'forwards' });
+    ], { duration: 155, easing: 'cubic-bezier(.32,0,.65,.4)', fill: 'forwards' });
     try { await anim.finished; } catch {}
     if (epoch !== motionEpoch) return;
     anim.cancel();
@@ -159,8 +179,9 @@ async function rateStudy(rating) {
   else studyFinished.add(key);
   studySeen.add(key);
   showStudyWord();
+  studyFace.dispatchEvent(new CustomEvent('study-card-rated', { bubbles: true, detail: direction }));
   if (!reduceMotion.matches && studyFace.animate) {
-    const anim = studyFace.animate([{ transform: 'translateY(18px) scale(.96)', opacity: .4 }, { transform: 'translateY(0) scale(1)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    const anim = studyFace.animate([{ transform: 'translateY(9px) scale(.985)', opacity: .65 }, { transform: 'translateY(0) scale(1)', opacity: 1 }], { duration: 165, easing: 'cubic-bezier(.2,.8,.2,1)' });
     try { await anim.finished; } catch {}
   }
   if (epoch !== motionEpoch) return;
@@ -225,46 +246,101 @@ function setFlight(value) {
 }
 document.querySelectorAll('[data-flight]').forEach(el => el.addEventListener('click', () => setFlight(el.dataset.flight)));
 setFlight(flightMode);
+// The implicit capture on a touched child can transfer to the card. Only
+// losing capture from the card itself cancels an in-progress swipe.
+function swipeTransform(dx) {
+  const tilt = Math.max(-10, Math.min(10, dx / 25));
+  return `translate3d(${dx}px, 0, 0) rotate(${tilt}deg)`;
+}
+
+function renderSwipe() {
+  gestureFrame = 0;
+  if (!gesture?.horizontal) return;
+  const dx = gesture.dx;
+  studyFace.style.transform = swipeTransform(dx);
+  const direction = dx >= 0 ? 'right' : 'left';
+  if (swipeVerdict.dataset.direction !== direction || !swipeVerdict.textContent) {
+    swipeVerdict.dataset.direction = direction;
+    swipeVerdict.textContent = dx >= 0 ? '认识 →' : '← 再复习';
+  }
+}
+
 studyFace.addEventListener('pointerdown', event => {
-  if (flightMode !== 'swipe' || !studyWord || studyBusy || !event.isPrimary || event.button !== 0 || event.target.closest('#study-speak, a')) return;
+  if (flightMode !== 'swipe' || !studyWord || studyBusy || !event.isPrimary ||
+      event.button !== 0 || event.target.closest('#study-speak, a')) return;
+  settleAnimation?.cancel();
   swallowClick = false;
-  gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, horizontal: false };
+  gesture = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    start: event.timeStamp,
+    threshold: Math.max(34, Math.min(72, studyFace.clientWidth * .15)),
+    dx: 0,
+    horizontal: false
+  };
 });
+
 studyFace.addEventListener('pointermove', event => {
   if (!gesture || gesture.id !== event.pointerId) return;
-  const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
+  const dx = event.clientX - gesture.x;
+  const dy = event.clientY - gesture.y;
   if (!gesture.horizontal) {
-    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { gesture = null; return; }
-    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+      gesture = null;
+      return;
+    }
+    if (Math.abs(dx) < 7 || Math.abs(dx) < Math.abs(dy) * 1.12) return;
     gesture.horizontal = true;
     studyFace.setPointerCapture(event.pointerId);
     studyFace.classList.add('dragging');
   }
   gesture.dx = dx;
-  studyFace.style.transform = `translateX(${dx}px) rotate(${Math.max(-12, Math.min(12, dx / 22))}deg)`;
-  byId('swipe-verdict').textContent = dx > 0 ? '认识 →' : '← 再复习';
-  byId('swipe-verdict').dataset.direction = dx > 0 ? 'right' : 'left';
+  if (!gestureFrame) gestureFrame = requestAnimationFrame(renderSwipe);
 });
+
 function endGesture(event, canceled = false) {
   if (!gesture || gesture.id !== event.pointerId) return;
-  const { dx, horizontal } = gesture;
+  const current = gesture;
   gesture = null;
+  cancelAnimationFrame(gestureFrame);
+  gestureFrame = 0;
   studyFace.classList.remove('dragging');
   if (studyFace.hasPointerCapture(event.pointerId)) studyFace.releasePointerCapture(event.pointerId);
-  swallowClick = horizontal;
-  if (!canceled && horizontal && Math.abs(dx) > Math.min(100, studyFace.clientWidth * .23)) rateStudy(dx > 0 ? 3 : 1);
-  else {
-    const transform = studyFace.style.transform;
-    studyFace.style.transform = '';
-    byId('swipe-verdict').textContent = '';
-    if (horizontal && !reduceMotion.matches) studyFace.animate([{ transform }, { transform: 'translateX(0) rotate(0deg)' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  if (!current.horizontal) return;
+
+  swallowClick = true;
+  const dx = canceled ? current.dx : event.clientX - current.x;
+  const distance = Math.abs(dx);
+  const elapsed = Math.max(1, event.timeStamp - current.start);
+  const flick = distance >= 23 && elapsed <= 180 && distance / elapsed >= .42;
+  if (!canceled && (distance >= current.threshold || flick)) {
+    studyFace.style.transform = swipeTransform(dx);
+    rateStudy(dx > 0 ? 3 : 1);
+    return;
+  }
+  const transform = studyFace.style.transform || swipeTransform(current.dx);
+  studyFace.style.transform = '';
+  swipeVerdict.textContent = '';
+  if (!reduceMotion.matches && studyFace.animate) {
+    settleAnimation = studyFace.animate(
+      [{ transform }, { transform: swipeTransform(0) }],
+      { duration: 185, easing: 'cubic-bezier(.22,.75,.28,1)' }
+    );
   }
 }
+
 studyFace.addEventListener('pointerup', event => endGesture(event));
 studyFace.addEventListener('pointercancel', event => endGesture(event, true));
-studyFace.addEventListener('lostpointercapture', event => endGesture(event, true));
+studyFace.addEventListener('lostpointercapture', event => {
+  if (event.target === studyFace) endGesture(event, true);
+});
 studyFace.addEventListener('click', event => {
-  if (swallowClick) { event.preventDefault(); event.stopImmediatePropagation(); swallowClick = false; }
+  if (swallowClick && event.detail !== 0) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    swallowClick = false;
+  }
 }, true);
 document.addEventListener('visibilitychange', () => { if (document.hidden) cancelStudyMotion(); });
 
