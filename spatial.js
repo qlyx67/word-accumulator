@@ -1,222 +1,68 @@
-/* Spatial shell: reuses the original exercises, data and persistence. */
+/* Learning studio: stable navigation, local reviews and one focused workspace. */
 (() => {
   'use strict';
-  const $ = s => document.querySelector(s);
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const animateNavigation = () => !reduced.matches && $('#space-motion-toggle')?.checked !== false;
-  const icons = {
-    study:'<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h4"/>',
-    browse:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
-    library:'<path d="M4 5h5v15H4zM9 5h5v15H9zM16 4l4-1 3 15-4 1z"/>',
-    practice:'<path d="m10 3 11 9-11 9V3ZM3 7v10"/>',
-    mistakes:'<path d="M5 4h14v17H5zM9 1v6M15 1v6M9 12h6M9 16h4"/>',
-    close:'<path d="m6 6 12 12M6 18 18 6"/>',
-    arrow:'<path d="M5 12h14m-5-5 5 5-5 5"/>',
-    help:'<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 3v.2"/>'
-  };
-  const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
-  const shell = $('.studio-shell');
-  const main = $('main');
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+  const symbols={home:'<path d="m3 10 9-7 9 7v10H3zM9 20v-7h6v7"/>',study:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h4"/>',practice:'<path d="m9 4 12 8-12 8V4ZM3 7v10"/>',browse:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',mistakes:'<path d="M5 3h14v18H5zM9 8h6M9 12h6M9 16h3"/>',settings:'<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>'};
+  const icon=n=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${symbols[n]||symbols.arrow}</svg>`;
+  const main=$('main'), originalNav=$('.studio-rail nav');
   document.body.classList.add('spatial');
-  const sky = document.createElement('div');
-  sky.className = 'space-scene'; sky.setAttribute('aria-hidden','true');
-  document.body.prepend(sky);
-  const mast = document.createElement('header');
-  mast.className = 'space-mast';
-  mast.innerHTML = `<a class="space-brand" href="#" aria-label="返回背词"><span class="space-emblem" aria-hidden="true"></span><span>单词累积器<small>WORD ACCUMULATOR</small></span></a><div class="space-mast-right"><button class="space-status" type="button" data-space-panel="library"><span class="status-dot"></span><span id="space-current">选择词库</span>${icon('arrow')}</button><button class="space-icon" type="button" id="space-help" aria-label="操作说明">${icon('help')}</button></div>`;
-  shell.before(mast);
-  const toolbar = document.createElement('div');
-  toolbar.className = 'space-location';
-  toolbar.innerHTML = '<h1 id="space-mode-title">背词卡</h1><button type="button" data-space-panel="library" class="space-range">范围与分组 <span aria-hidden="true">↗</span></button>';
-  main.prepend(toolbar);
-  const dock = document.createElement('nav');
-  dock.className = 'space-dock'; dock.setAttribute('aria-label','学习导航');
-  dock.innerHTML = [
-    ['library','词库','panel'],['study','背词','mode'],['practice','练习','panel'],['browse','查词','mode'],['mistakes','错题','panel']
-  ].map(([key,label,type]) => `<button type="button" data-space-${type}="${key}" aria-label="${label}">${icon(key)}<span>${label}</span></button>`).join('');
-  shell.after(dock);
-  let activeDialog = null;
-  let panelAnimation;
-  let closing = null;
-  let opener = null;
-  function makePanel(key, title, side) {
-    const d = document.createElement('dialog');
-    d.id='space-'+key; d.className='space-panel'; d.dataset.side=side;
-    d.setAttribute('aria-labelledby',d.id+'-title');
-    d.innerHTML=`<div class="space-panel-surface"><div class="space-panel-head"><h2 id="${d.id}-title">${title}</h2><button type="button" class="space-icon space-close" aria-label="关闭${title}">${icon('close')}</button></div><div class="space-panel-body"></div></div>`;
-    document.body.append(d);
-    d.querySelector('.space-close').addEventListener('click',closePanel);
-    d.addEventListener('cancel',e=> {e.preventDefault();closePanel();});
-    const surface = d.querySelector('.space-panel-surface');
-    let pressedBackdrop = false;
-    d.addEventListener('pointerdown', event => {
-      pressedBackdrop = event.target === d && !surface.getAnimations().some(
-        animation => animation.playState === 'running'
-      );
-    });
-    d.addEventListener('click', event => {
-      if (pressedBackdrop && event.target === d) closePanel();
-      pressedBackdrop = false;
-    });
-    return d;
-  }
-  const library = makePanel('library', '词库与范围', 'left');
-  const practice = makePanel('practice', '选择练习', 'bottom');
-  const mistakes = makePanel('mistakes', '错题本', 'right');
-  const info = makePanel('info', '学习进度', 'bottom');
-  const content = d => d.querySelector('.space-panel-body');
-  content(library).append($('.study-controls'),$('#practice-scope'),$('.map-panel'));
-  content(mistakes).append($('#wrong-side'));
-  const classicLink = document.createElement('a');
-  classicLink.className = 'space-about';
-  classicLink.href = 'classic.html';
-  classicLink.textContent = '打开旧版';
-  content(info).append($('.hero-progress'), $('#save-note'), $('footer'), $('.rail-credit'), classicLink);
-  const originalNav = $('.studio-rail nav');
-  content(practice).append(originalNav);
-  originalNav.className='space-mode-grid';
-  const descriptions = {
-    match: ['轨道配对', '把单词与释义连起来'],
-    spell: ['拼写', '根据释义拼出单词'],
-    quiz: ['句子选择', '根据上下文选词']
-  };
-  for (const control of originalNav.querySelectorAll('[data-mode]')) {
-    const description = descriptions[control.dataset.mode];
-    if (!description) continue;
-    const [title, detail] = description;
-    control.innerHTML = `<strong>${title}</strong><span class="mode-description">${detail}</span><span class="mode-go" aria-hidden="true">↗</span>`;
-    control.addEventListener('click', closePanel);
-  }
-  const infoButton=document.createElement('button'); infoButton.type='button'; infoButton.className='space-about';
-  infoButton.textContent='进度、存储与内容来源 ↗';
-  infoButton.addEventListener('click', async () => {
-    const source = opener;
-    await closePanel();
-    openPanel('info', source);
-  });
-  content(library).append(infoButton);
-  const libraryDone=document.createElement('button');libraryDone.type='button';libraryDone.className='space-apply';
-  libraryDone.textContent='回到学习 →';libraryDone.addEventListener('click',closePanel);content(library).append(libraryDone);
-  $('.studio-rail').hidden=true;
-  $('.studio-top').hidden=true;
-  $('.acc-hero').hidden=true;
-  // Move secondary settings off the learning canvas; original event handlers survive.
-  const settings = document.createElement('div'); settings.className='space-study-settings';
-  settings.innerHTML='<span class="space-overline">背词操作方式</span>';
-  settings.append($('.flight-options'));content(library).prepend(settings);
-  $('.flight-toolbar').hidden=true;
-  const focus = $('#study-focus');
-  focus.className='space-focus'; focus.textContent='⤢ 专注';
-  $('.study-actions').append(focus);
-  $('#space-help').addEventListener('click',()=>$('#help-open').click());
-  $('.space-brand').addEventListener('click',e=>{e.preventDefault();goMode('study');});
-  async function closePanel() {
-    if(closing)return closing;
-    const d=activeDialog;if(!d)return;
-    const surface=d.querySelector('.space-panel-surface');
-    const side=d.dataset.side;
-    const end=side==='left'?'translateX(-105%)':side==='right'?'translateX(105%)':'translateY(105%)';
-    delete document.body.dataset.spacePanel;
-    delete document.body.dataset.spaceDestination;
-    closing=(async()=>{
-      if (animateNavigation()) {
-        const style = getComputedStyle(surface);
-        const initial = { transform: style.transform, opacity: style.opacity };
-        panelAnimation?.cancel();
-        panelAnimation = surface.animate([
-          initial, { transform: end + ' scale(.90)', opacity: 0 }
-        ], { duration: 270, easing: 'cubic-bezier(.4,0,.6,1)' });
-        try { await panelAnimation.finished; } catch {}
-      } else {
-        panelAnimation?.cancel();
-      }
-      d.close();activeDialog=null;
-      opener?.focus({preventScroll:true});opener=null;
-    })().finally(()=>{closing=null;});
-    return closing;
-  }
-  async function openPanel(key,source) {
-    if(closing)await closing;
-    if(activeDialog)await closePanel();
-    const d=$('#space-'+key);if(!d)return;
-    opener=source || document.activeElement;activeDialog=d;
-    if(key==='mistakes')$('#wrong-side').hidden=false;
-    $('.map-panel').hidden = mode !== 'study';
-    settings.hidden=mode !== 'study';
-    document.body.dataset.spacePanel=d.dataset.side;
-    document.body.dataset.spaceDestination=key;
-    d.showModal();
-    document.dispatchEvent(new Event('study-controls-updated'));
-    const side=d.dataset.side;
-    const start=side==='left'?'translateX(-105%)':side==='right'?'translateX(105%)':'translateY(105%)';
-    if (animateNavigation()) {
-      panelAnimation = d.querySelector('.space-panel-surface').animate([
-        { transform: start + ' scale(.84)', opacity: .12 },
-        { transform: 'translate3d(0,0,0) scale(1.015)', opacity: 1, offset: .83 },
-        { transform: 'none', opacity: 1 }
-      ], { duration: 530, easing: 'cubic-bezier(.19,.8,.22,1)' });
-    }
-  }
-  for (const control of document.querySelectorAll('[data-space-panel]')) {
-    control.setAttribute('aria-haspopup', 'dialog');
-    control.setAttribute('aria-controls', 'space-' + control.dataset.spacePanel);
-    control.addEventListener('click', () => openPanel(control.dataset.spacePanel, control));
-  }
-  $('#constellation').addEventListener('click', async event => {
-    if (!event.target.closest('button')) return;
-    await closePanel();
-    $('#study-flip').focus({preventScroll: true});
-  });
-  function goMode(next){
-    if(next!==mode)originalNav.querySelector(`[data-mode="${next}"]`).click();
-    if(next==='study'&&document.body.classList.contains('focus-study'))focus.click();
-  }
-  document.querySelectorAll('[data-space-mode]').forEach(b=>b.addEventListener('click',()=>goMode(b.dataset.spaceMode)));
-  // Existing mistake actions navigate too; dismiss their drawer after activation.
-  content(mistakes).addEventListener('click',e=>{if(e.target.closest('[data-review],#sentence-review,.sentence-list button'))closePanel();});
-  const modeOrder = ['study', 'browse', 'match', 'spell', 'quiz'];
-  let previousMode=mode;
-  let modeAnimation=null;
-  function syncMode(){
-    $('#space-mode-title').textContent = $('#studio-title').textContent;
-    dock.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.spaceMode===mode || b.dataset.spacePanel==='practice'&&['match','spell','quiz'].includes(mode))));
-    $('.map-panel').hidden=mode!=='study';settings.hidden=mode!=='study';
-    if(mode!==previousMode){
-      const oldIndex=modeOrder.indexOf(previousMode),newIndex=modeOrder.indexOf(mode);
-      previousMode=mode;modeAnimation?.cancel();
-      if (animateNavigation()) {
-        const surface = mode === 'study' ? $('#study .card-orbit') : $('#'+mode);
-        modeAnimation = surface.animate([
-          { transform: `translate3d(${newIndex>oldIndex?32:-32}px,15px,0) scale(.83)`, opacity: .12 },
-          { transform: 'translate3d(0,0,0) scale(1.012)', opacity: 1, offset: .77 },
-          { transform: 'none', opacity: 1 }
-        ], { duration: 510, easing: 'cubic-bezier(.18,.78,.23,1)' });
-      }
-      window.scrollTo({top:0,behavior:'instant'});
-    }
-  }
-  new MutationObserver(syncMode).observe(document.body,{attributes:true,attributeFilter:['data-mode']});
-  function syncGroup(){
-    $('#space-current').textContent=mode==='study'?$('#study-batch').textContent:$('#deck-select').selectedOptions[0]?.textContent || '学习词库';
-  }
-  new MutationObserver(syncGroup).observe($('#study-batch'),{childList:true,characterData:true,subtree:true});
-  document.addEventListener('study-controls-updated',syncGroup);
-  syncMode();syncGroup();
-  // Concise onboarding is always available, not a blocking first-visit modal.
-  const help = $('#studio-help');
-  const guide=document.createElement('p');
-  guide.textContent='新版空间导航：底部「词库」从左侧打开分组与筛选；「练习」展开配对、拼写、句子选择；「错题」从右侧打开。点空白、关闭按钮或 Esc 返回。小按钮保留至少 44 像素的触控区域。';
-  const motionSetting = document.createElement('label');
-  motionSetting.className = 'space-motion-setting';
-  motionSetting.innerHTML = '<input id="space-motion-toggle" type="checkbox" checked> 星空与跃迁动画';
-  help.querySelector('.panel-heading').after(guide, motionSetting);
-  for (const paragraph of help.querySelectorAll('p')) {
-    if (paragraph.textContent.startsWith('学习词库：')) {
-      paragraph.textContent = '用底部「词库」切换内置或自建词库，各词库独立保存星星和错题。';
-    }
-  }
-  const previousLayout = classicLink.cloneNode(true);
-  previousLayout.className = 'space-help-classic';
-  help.querySelector('form').before(previousLayout);
-  document.body.dataset.spatialReady='true';
+  const backdrop=document.createElement('div');backdrop.className='space-scene';backdrop.setAttribute('aria-hidden','true');document.body.prepend(backdrop);
+  const header=document.createElement('header');header.className='space-mast';header.innerHTML=`<button class="space-brand" data-view="home"><span class="studio-monogram">a<span>↗</span></span><span>单词累积器<small>WORD ACCUMULATOR</small></span></button><div class="mast-actions"><button class="deck-shortcut" data-open="library"><span class="status-dot"></span><span id="current-deck"></span><span>⌄</span></button><button class="space-icon" data-open="settings" aria-label="设置与备份">${icon('settings')}</button></div>`;document.body.prepend(header);
+  const nav=document.createElement('nav');nav.className='space-dock';nav.setAttribute('aria-label','主导航');nav.innerHTML=[['home','今日'],['study','背词'],['practice','练习'],['browse','查词'],['mistakes','错题']].map(([id,title])=>`<button data-view="${id}" aria-label="${title}">${icon(id)}<span>${title}</span><i></i></button>`).join('')+'<span class="nav-credit">make by lyxx</span>';document.body.append(nav);
+  $('.studio-rail').hidden=true;$('.studio-top').hidden=true;$('.acc-hero').hidden=true;
+  const location=document.createElement('div');location.className='space-location';location.innerHTML='<div><span class="eyebrow" id="view-kicker">YOUR LEARNING SPACE</span><h1 id="view-title">每天一点，积累更多。</h1><p id="view-description"></p></div><button class="range-button" data-open="library">范围与分组 <span>↗</span></button>';main.prepend(location);
+  const home=document.createElement('section');home.id='learning-home';home.innerHTML=`<div class="home-grid"><section class="daily-card"><div class="daily-top"><span class="eyebrow">DAILY SESSION</span><span id="today-date"></span></div><h2 id="daily-title">给记忆一点时间。</h2><p id="daily-description">先复习，再认识一些新单词。</p><div class="daily-bottom"><button id="daily-start" class="primary">开始今日学习 ${icon('arrow')}</button><span id="daily-hint"></span></div><div class="daily-track"><span id="daily-track-fill"></span></div></section><section class="goal-card"><div class="section-label">今日目标 <button data-open="settings" aria-label="调整每日目标">调整 ↗</button></div><div class="goal-ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="51"/><circle id="goal-arc" cx="60" cy="60" r="51"/></svg><div><strong id="daily-count">0</strong><span id="daily-goal">/ 20 词</span></div></div><p id="goal-caption">从今天开始，留下第一步。</p></section></div><div class="quick-grid"><button id="due-start" class="quick-card"><span class="quick-symbol">↺</span><div><strong>到期复习 <b id="due-count">0</b></strong><small id="due-hint">按上次回忆安排</small></div><span>↗</span></button><button id="resume-study" class="quick-card"><span class="quick-symbol">▤</span><div><strong>继续上次</strong><small id="resume-caption"></small></div><span>↗</span></button></div><div class="home-lower"><section class="week-panel"><div class="section-label">最近七天<span>每日回忆的不同词数</span></div><div id="week-chart" class="week-chart"></div></section><section class="mastery-panel"><div class="section-label">词库掌握度<span id="deck-total"></span></div><div class="mastery-number"><strong id="home-mastered">0</strong><span>词已通过两项练习</span></div><div class="mastery-bar"><span id="mastery-fill"></span></div><p>背词卡帮助回忆；配对与拼写都答对，才点亮两颗星。</p></section></div>`;location.after(home);
+  const practice=document.createElement('section');practice.id='practice-hub';practice.hidden=true;practice.innerHTML='<p class="section-intro">用不同方式，把认识变成记住。</p>';practice.append(originalNav);originalNav.className='practice-choices';home.after(practice);
+  const descriptions={match:['01','英汉配对','建立单词与词义的联系','10 对 / 轮'],spell:['02','拼写训练','从词义主动回忆准确拼写','逐字纠错'],quiz:['03','语境选择','在完整句子里理解单词','即时解析']};
+  originalNav.querySelectorAll('button').forEach(b=>{const d=descriptions[b.dataset.mode];if(!d){b.hidden=true;return;}b.innerHTML=`<span class="practice-index">${d[0]} / ${d[3]}</span><strong>${d[1]}</strong><span>${d[2]}</span><i>${icon('arrow')}</i>`;});
+  const practiceTabs=document.createElement('div');practiceTabs.className='practice-tabs';practiceTabs.hidden=true;practiceTabs.innerHTML=Object.entries(descriptions).map(([key,d])=>`<button data-exercise="${key}">${d[1]}</button>`).join('');$('#exercise-layout').before(practiceTabs);
+  const mistakes=document.createElement('section');mistakes.id='mistake-workspace';mistakes.hidden=true;mistakes.append($('#wrong-side'));$('#exercise-layout').after(mistakes);
+  const summary=document.createElement('section');summary.id='session-summary';summary.hidden=true;summary.innerHTML='<span class="summary-check">✓</span><span class="eyebrow">SESSION COMPLETE</span><h2>这一轮，记住了。</h2><p id="summary-text"></p><div class="summary-actions"><button class="primary" id="summary-spell">用拼写检验记忆 →</button><button id="summary-match">本轮单词配对</button><button id="summary-next">下一组</button><button data-view="home">回到今日</button></div><small>“认识”是自评。明天继续复习，会记得更牢。</small>';$('#study .study-card').append(summary);
+  const sessionTools=document.createElement('div');sessionTools.className='session-tools';sessionTools.innerHTML='<button id="study-shuffle">打乱顺序</button><button id="study-reverse" aria-pressed="false">中文 → 英文</button><button id="study-next-group">下一组 →</button>';$('.study-actions').after(sessionTools);
+  const groupSpell=document.createElement('button');groupSpell.id='study-spell';groupSpell.textContent='本组拼写 ↗';$('.study-actions').append(groupSpell);
+  const focus=$('#study-focus');$('.study-actions').append(focus);focus.textContent='专注';$('.flight-toolbar').hidden=true;
+  let activeDialog=null,view='home',lastMode=mode,lastPractice='match',pageAnimation;
+  function makeDialog(id,title){const d=document.createElement('dialog');d.id='studio-'+id;d.className='studio-dialog';d.setAttribute('aria-labelledby',d.id+'-title');d.innerHTML=`<div class="dialog-head"><h2 id="${d.id}-title">${title}</h2><button class="space-icon" aria-label="关闭${title}">${icon('close')}</button></div><div class="dialog-body"></div>`;document.body.append(d);d.querySelector('button').onclick=()=>d.close();d.addEventListener('close',()=>{if(activeDialog===d)activeDialog=null;});d.addEventListener('click',e=>{const r=d.getBoundingClientRect();if(e.target===d&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom))d.close();});return d;}
+  const library=makeDialog('library','词库与学习范围'),settings=makeDialog('settings','设置与备份');
+  library.querySelector('.dialog-body').append($('.study-controls'),$('#practice-scope'),$('.map-panel'));
+  const saveNote=$('#save-note');const settingsBody=settings.querySelector('.dialog-body');
+  settingsBody.innerHTML='<label class="settings-row">每日目标<select id="goal-setting"><option value="10">10 词 · 轻量</option><option value="20">20 词 · 日常</option><option value="30">30 词 · 进阶</option><option value="50">50 词 · 挑战</option></select></label><div class="settings-row" id="flight-setting"><span>背词方式</span></div><label class="settings-row">轻量过渡动画<input id="space-motion-toggle" type="checkbox" checked></label><label class="settings-row">深空氛围彩蛋<input id="ambient-toggle" type="checkbox"></label><p class="muted">彩蛋只在今日页偶尔出现，学习时保持安静。关闭过渡动画可进一步减少动态。</p><div class="backup-section"><h3>把进度带走</h3><p>包含自建词库、星星、错题、复习安排和学习记录。导出后请保管好文件。</p><button id="backup-export">导出学习备份</button><label class="file-button">导入备份<input id="backup-file" type="file" accept="application/json,.json"></label><div id="backup-preview" hidden><p id="backup-description"></p><button id="backup-confirm" class="primary">确认恢复</button></div><p id="backup-status" role="status"></p></div><div class="settings-links"><button id="open-guide">操作说明</button><a href="classic.html">打开旧版 ↗</a></div>';
+  $('#flight-setting').append($('.flight-options'));settingsBody.append(saveNote,$('footer'),$('.rail-credit'));
+  saveNote.textContent='数据保存在此浏览器。换设备可导出并导入备份；清除网站数据前请先备份。没有账号同步。';
+  const originalHelp=$('#studio-help');originalHelp.querySelector('p').textContent='背词：先点卡片或按空格展开释义，再左划复习 / 右划认识，或按 1 / 2 / 3 自评。不会和模糊的词会在本轮再次出现，直到选择认识。撤销会同时恢复词卡和本次学习记录。未完成的队列自动保存。';
+  const extra=document.createElement('p');extra.textContent='今日目标按不同词条计数，重复刷同一个词不会增加词数。复习安排从本次升级后开始记录：不会约 10 分钟、模糊约 1 小时后再复习；认识后逐步安排在 1、3、7、14、30、60 天。配对和拼写答对也会更新安排。';originalHelp.querySelector('form').before(extra);
+  function openDialog(key){activeDialog?.close();const d=key==='settings'?settings:library;activeDialog=d;$('.map-panel').hidden=view!=='study'&&view!=='home';$('#word-toolbar').hidden=view==='study'||view==='home'||mode==='quiz';$('#practice-scope').hidden=!['match','spell'].includes(mode)||view!=='practice';$('#goal-setting').value=String(LearningProgress.stats().goal);d.showModal();document.dispatchEvent(new Event('study-controls-updated'));}
+  const titles={home:['YOUR LEARNING SPACE','每天一点，积累更多。','把今天的回忆，变成明天的积累。'],study:['FLASHCARDS','专注一个词。','先回忆，再翻卡确认。'],practice:['PRACTICE','让记忆更扎实。','选择一种练习，检验真正掌握了多少。'],browse:['WORD LIBRARY','你的词汇库。','词义、词性与例句，随手可查。'],mistakes:['REVIEW NOTEBOOK','把薄弱处补起来。','配对错词会在整轮结束后显示。']};
+  function renderView(next){view=next;document.body.dataset.view=next;home.hidden=next!=='home';practice.hidden=next!=='practice'||['match','spell','quiz'].includes(mode)&&document.body.dataset.exercise==='true';$('#exercise-layout').hidden=!['study','browse'].includes(next)&&!(next==='practice'&&document.body.dataset.exercise==='true');mistakes.hidden=next!=='mistakes';$('#wrong-side').hidden=next!=='mistakes';practiceTabs.hidden=next!=='practice'||document.body.dataset.exercise!=='true';const t=titles[next];$('#view-kicker').textContent=t[0];$('#view-title').textContent=t[1];$('#view-description').textContent=t[2];$('.range-button').hidden=next==='home'||next==='mistakes';$$('.space-dock [data-view]').forEach(b=>b.setAttribute('aria-current',b.dataset.view===next?'page':'false'));$$('button[data-exercise]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.exercise===mode)));pageAnimation?.cancel();if(!reduce.matches&&$('#space-motion-toggle').checked){const el=next==='home'?home:next==='mistakes'?mistakes:next==='practice'&&!practice.hidden?practice:$('#exercise-layout');pageAnimation=el.animate([{opacity:.5,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:180,easing:'cubic-bezier(.2,.8,.2,1)'});}document.dispatchEvent(new Event('studio-view-changed'));}
+  function navigate(next){activeDialog?.close();if(next==='study'||next==='browse'){if(mode!==next)activateMode(next,false);}else if(next==='practice'){document.body.dataset.exercise='false';}else if(next==='mistakes'){renderWrongWords();renderSentenceMistakes();}if(next!=='study')cancelStudyMotion();stopSpeech();renderView(next);if(next==='home')renderHome();window.scrollTo({top:0,behavior:'instant'});}
+  document.addEventListener('click',e=>{const v=e.target.closest('button[data-view]'),o=e.target.closest('button[data-open]'),x=e.target.closest('button[data-exercise]');if(v)navigate(v.dataset.view);else if(o)openDialog(o.dataset.open);else if(x)exercise(x.dataset.exercise);});
+  function exercise(next){activeDialog?.close();document.body.dataset.exercise='true';if(next==='quiz'&&mode!==next)openSentencePractice(false);else if(mode!==next)activateMode(next,false);lastPractice=next;renderView('practice');}
+  new MutationObserver(()=>{if(mode===lastMode)return;lastMode=mode;if(['match','spell','quiz'].includes(mode)){lastPractice=mode;document.body.dataset.exercise='true';renderView('practice');}else renderView(mode);}).observe(document.body,{attributes:true,attributeFilter:['data-mode']});
+  originalNav.addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)exercise(b.dataset.mode);});
+  function renderHome(){const s=LearningProgress.stats(),due=LearningProgress.due();$('#daily-count').textContent=s.count;$('#daily-goal').textContent='/ '+s.goal+' 词';$('#daily-title').textContent=s.count>=s.goal?'今天的目标，完成了。':s.count?'接着上一次，继续积累。':'给记忆一点时间。';$('#daily-description').textContent=s.count>=s.goal?'可以复习到期单词，或用练习巩固今天所学。':'优先安排到期复习，再加入未学过的词。';$('#daily-start').firstChild.textContent=s.count>=s.goal?'进入巩固练习 ':'开始今日学习 ';$('#daily-hint').textContent=s.count>=s.goal?'目标完成，节奏由你决定。':`今天还差 ${Math.max(0,s.goal-s.count)} 个不同词条`;$('#daily-track-fill').style.width=Math.min(100,s.count/s.goal*100)+'%';$('#goal-arc').style.strokeDashoffset=320.45*(1-Math.min(1,s.count/s.goal));$('#goal-caption').textContent=s.count?`今天已回忆 ${s.attempts} 次 · ${s.count} 个不同词条`:'从今天开始，留下第一步。';$('#due-count').textContent=due.length;$('#due-hint').textContent=due.length?'这些词现在值得再看一次':'暂无到期词，按自己的节奏学习';$('#due-start').disabled=!due.length;$('#resume-caption').textContent=studyGroup.topic+' · 剩余 '+studyQueue.length+' 词';const week=LearningProgress.week(),max=Math.max(s.goal,...week.map(d=>d.count));$('#week-chart').replaceChildren(...week.map(d=>{const col=document.createElement('div');col.className='week-column';const n=document.createElement('span');n.textContent=d.count;const rail=document.createElement('div');rail.className='week-rail';const bar=document.createElement('i');bar.style.height=Math.max(3,d.count/max*100)+'%';bar.classList.toggle('today',d.key===LearningProgress.dayKey());rail.append(bar);const label=document.createElement('small');label.textContent=d.key===LearningProgress.dayKey()?'今日':d.label;col.append(n,rail,label);col.title=d.key+'：'+d.count+' 词';return col;}));const mastered=words.filter(isMastered).length;$('#home-mastered').textContent=mastered;$('#deck-total').textContent=words.length+' 词';$('#mastery-fill').style.width=(words.length?mastered/words.length*100:0)+'%';$('#current-deck').textContent=$('#deck-select').selectedOptions[0]?.textContent||'学习词库';$('#today-date').textContent=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date());}
+  function begin(entries,label){if(startStudySession(entries,label))navigate('study');}
+  $('#daily-start').onclick=()=>{const plan=LearningProgress.plan();if(plan.length)begin(plan,'今日计划');else navigate('practice');};$('#due-start').onclick=()=>begin(LearningProgress.due().slice(0,30),'到期复习');$('#resume-study').onclick=()=>navigate('study');
+  const practiceGroup=skill=>{topic.value=studyGroup.topic;scopes[skill]=new Set([studyGroup]);filters[skill]='all';activateMode(skill,false);exercise(skill);};$('#study-spell').onclick=()=>practiceGroup('spell');$('#summary-spell').onclick=()=>practiceGroup('spell');$('#summary-match').onclick=()=>practiceGroup('match');
+  function nextGroup(){const i=studyGroups.indexOf(studyGroup);const next=i<0?0:i+1;if(next>=studyGroups.length){navigate('home');return;}groupControl.value=String(next);groupControl.dispatchEvent(new Event('change'));navigate('study');}
+  $('#summary-next').onclick=nextGroup;$('#study-next-group').onclick=nextGroup;
+  $('#study-shuffle').onclick=()=>{if(studyBusy||studyQueue.length<2)return;cancelStudyMotion();studyQueue=shuffle(studyQueue);studyHistory=[];showStudyWord(true);};
+  let reverse=false;$('#study-reverse').onclick=()=>{reverse=!reverse;$('#study-reverse').setAttribute('aria-pressed',String(reverse));showStudyWord();};
+  function syncCard(){if(reverse&&studyWord){$('#study-word').textContent=studyWord.meaning||studyWord.term;$('#study-word').lang='zh';$('#study-word').classList.add('meaning-front');}else{$('#study-word').lang='en';$('#study-word').classList.remove('meaning-front');}const done=!studyWord;summary.hidden=!done;for(const selector of ['.card-orbit','.gesture-guide','.study-ratings','.study-actions','.session-tools'])$(selector).hidden=done;$('#summary-text').textContent=`本轮 ${studyGroup.words.length} 个词已全部自评认识，复习安排已保存。`;$('#summary-next').textContent=studyGroups.indexOf(studyGroup)===studyGroups.length-1?'回到今日':'下一组';$('#study-shuffle').disabled=studyQueue.length<2;}
+  new MutationObserver(()=>{if(reverse&&revealed&&studyWord){$('#study-meaning').textContent=studyWord.term+' · '+studyWord.pos;}}).observe($('#study-details'),{attributes:true,attributeFilter:['hidden']});
+  document.addEventListener('study-card-updated',()=>{syncCard();if(view==='home')renderHome();});
+  document.addEventListener('learning-updated',()=>{if(view==='home')renderHome();});document.addEventListener('vocab-progress-updated',()=>{if(view==='home')renderHome();if(view==='mistakes')$('#wrong-side').hidden=false;});
+  $('#goal-setting').onchange=e=>LearningProgress.goal(e.target.value);
+  $('#open-guide').onclick=()=>{settings.close();originalHelp.showModal();};
+  try{$('#space-motion-toggle').checked=localStorage.getItem('word-accumulator.motion')!=='off';$('#ambient-toggle').checked=localStorage.getItem('word-accumulator.ambient')==='on';}catch{}
+  const motion=()=>{document.body.classList.toggle('no-motion',!$('#space-motion-toggle').checked);document.body.classList.toggle('ambient-enabled',$('#ambient-toggle').checked);try{localStorage.setItem('word-accumulator.motion',$('#space-motion-toggle').checked?'on':'off');localStorage.setItem('word-accumulator.ambient',$('#ambient-toggle').checked?'on':'off');}catch{}};$('#space-motion-toggle').onchange=motion;$('#ambient-toggle').onchange=motion;motion();
+  const storageKeys=()=>Object.keys(localStorage).filter(k=>k.startsWith('word-accumulator.')&&!k.startsWith('word-accumulator.backup-'));
+  function downloadBackup(){const data={format:'word-accumulator-backup',version:1,created:new Date().toISOString(),storage:Object.fromEntries(storageKeys().map(k=>[k,localStorage.getItem(k)]))};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='word-accumulator-'+LearningProgress.dayKey()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  $('#backup-export').onclick=()=>{try{downloadBackup();$('#backup-status').textContent='备份已生成，请确认文件已下载保存。';}catch{$('#backup-status').textContent='无法读取浏览器数据，请检查存储权限。';}};
+  let pendingBackup;$('#backup-file').onchange=async e=>{pendingBackup=null;$('#backup-preview').hidden=true;const f=e.target.files[0];if(!f)return;try{if(f.size>20*1024*1024)throw Error('备份文件过大。');const data=JSON.parse(await f.text());const entries=validateLearningBackup(data);pendingBackup=entries;$('#backup-description').textContent=`包含 ${entries.length} 项本地记录。恢复会覆盖相同记录，其余保留；恢复前将自动下载当前备份。`;$('#backup-preview').hidden=false;$('#backup-status').textContent='已读取，确认后才恢复。';}catch(err){$('#backup-status').textContent=err.message;}};
+  $('#backup-confirm').onclick=()=>{if(!pendingBackup)return;const old=pendingBackup.map(([k])=>[k,localStorage.getItem(k)]);try{downloadBackup();for(const [k,v] of pendingBackup)localStorage.setItem(k,v);window.location.reload();}catch{for(const [k,v] of old){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch{}}$('#backup-status').textContent='恢复未完成，可能存储空间不足。请保留刚导出的备份。';}};
+  // Do not let hidden exercises react to global shortcuts.
+  document.addEventListener('keydown',e=>{if((view==='home'||view==='mistakes'||view==='practice'&&!practice.hidden)&&!e.target.closest('input,textarea,select,button,a')){if(['Space','ArrowLeft','ArrowRight','Digit1','Digit2','Digit3'].includes(e.code))e.stopImmediatePropagation();}},true);
+  setInterval(()=>{if(view==='home'&&!document.hidden)renderHome();},60000);
+  syncCard();renderHome();renderView('home');
 })();

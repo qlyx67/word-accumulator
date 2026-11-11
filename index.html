@@ -22,18 +22,21 @@
 <script defer src="word-audit.js"></script>
 <script defer src="deck-photo.js?v=3"></script>
 <script defer src="custom-decks.js?v=5"></script>
-<script defer src="accumulator.js?v=orbit1"></script>
+<script defer src="accumulator.js?v=studio4"></script>
 <script defer src="sentence-quiz.js?v=decks1"></script>
 <link rel="stylesheet" href="star-study.css?v=panels1">
 <link rel="stylesheet" href="orbit.css?v=1">
 <script defer src="pronunciation.js?v=1"></script>
 <script defer src="pronunciation-audit.js?v=1"></script>
 <script defer src="studio-audio.js?v=decks1"></script>
-<script defer src="star-study.js?v=swipe2"></script>
+<script defer src="learning-progress.js?v=1"></script>
+<script defer src="star-study.js?v=studio4"></script>
 <script defer src="filter-panels.js?v=1"></script>
-<link rel="stylesheet" href="spatial.css?v=3">
-<script defer src="spatial.js?v=3"></script>
-<script defer src="space-scene.js?v=2"></script>
+<link rel="stylesheet" href="spatial.css?v=studio4">
+<script defer src="backup-validation.js?v=1"></script>
+<script defer src="spatial.js?v=studio4"></script>
+<script defer src="practice-sessions.js?v=1"></script>
+<script defer src="space-scene.js?v=studio4"></script>
 </head>
 <body><div class="studio-shell">
 <aside class="studio-rail" aria-label="导航">
@@ -42,7 +45,7 @@
   <nav aria-label="练习模式">
     <button type="button" data-mode="study" aria-pressed="true"><span aria-hidden="true">◇</span> 背词卡</button>
     <button type="button" data-mode="browse" aria-pressed="false"><span aria-hidden="true">⌕</span> 查词</button>
-    <button type="button" data-mode="match" aria-pressed="false"><span aria-hidden="true">⇄</span> 轨道配对</button>
+    <button type="button" data-mode="match" aria-pressed="false"><span aria-hidden="true">⇄</span> 英汉配对</button>
     <button type="button" data-mode="spell" aria-pressed="false"><span aria-hidden="true">Aa</span> 拼写</button>
     <button type="button" data-mode="quiz" aria-pressed="false"><span aria-hidden="true">≡</span> 句子选择</button>
   </nav>
@@ -100,7 +103,7 @@
   <div class="actions study-actions"><button type="button" id="study-undo" disabled>↶ 撤销上张</button><button type="button" id="study-restart" hidden>再背本组</button><button type="button" class="primary" id="study-match">练习本组配对 <span aria-hidden="true">↗</span></button></div>
 </div>
 <aside class="card map-panel">
-  <div class="map-head"><div><span class="eyebrow">MEMORY ORBIT</span><h2>本组航线</h2></div><span id="map-count" class="tag"></span></div>
+  <div class="map-head"><div><span class="eyebrow">GROUP PROGRESS</span><h2>本组单词</h2></div><span id="map-count" class="tag"></span></div>
   <label for="map-group">学习分组</label><select id="map-group"></select>
   <div class="map-field"><svg viewBox="0 0 280 180" preserveAspectRatio="none" aria-hidden="true"><path d="M26 20 70 50 113 29 168 58 210 22 254 43M20 89 63 111 109 78 163 99 209 84 260 105M24 152 62 134 109 163 158 134 213 158 256 139M70 50 63 111 62 134M168 58 163 99 158 134M210 22 209 84 213 158"/></svg><div id="constellation" aria-label="本组单词航线"></div></div>
   <p class="tag">点编号跳转词卡。配对、拼写都通过后，航点点亮。</p>
@@ -167,10 +170,10 @@
 </dialog>
 <dialog class="studio-help" id="studio-help" aria-labelledby="help-title">
 <div class="panel-heading"><span class="eyebrow">QUICK GUIDE</span><h2 id="help-title">操作说明 · 触屏与键盘</h2></div>
-<p>背词卡：滑动卡模式下，左划再复习、右划认识；小幅拖动松手会回弹，上下滑动仍可滚动页面。也可切换按钮卡。撤销可以回到上张。每组最多 30 词。点卡片或按空格看释义，也可以直接点按钮或按 1 / 2 / 3 自评。不会的词稍后再出现，有点印象的排到队尾，每词最多追加一次。</p>
-<p>发音：点「发音」播放英语语音。轨道配对：每轮最多 10 对，先点英文、再点释义，也可用 Tab 和 Enter 操作按钮。拼写：输入后按 Enter 提交，再按一次进下一题。句子选择：点选项立即看解析。</p>
+<p>背词卡：滑动卡模式下，左划再复习、右划认识；小幅拖动松手会回弹，上下滑动仍可滚动页面。也可切换按钮卡。撤销可以回到上张。每组最多 30 词。点卡片或按空格看释义，也可以直接点按钮或按 1 / 2 / 3 自评。不会的词稍后再出现，有点印象的排到队尾，直到选择“认识”才离开本轮；可以随时返回首页，进度自动保存。</p>
+<p>发音：点「发音」播放英语语音。英汉配对：每轮最多 10 对，先点英文、再点释义，也可用 Tab 和 Enter 操作按钮。拼写：输入后按 Enter 提交，再按一次进下一题。句子选择：点选项立即看解析。</p>
 <p>沉浸：收起标题与分组面板，专注当前词卡；再点一次即可退出。</p><p>学习词库：用顶部「学习词库」切换。各词库独立保存星星和错题。</p>
-<p>航线：点编号可打开对应词卡。自评只改变复习顺序，配对和拼写都答对才算掌握。词卡位置保存在当前浏览器。</p>
+<p>分组：点编号可打开对应词卡。自评只改变复习顺序，配对和拼写都答对才算掌握。词卡位置保存在当前浏览器。</p>
 <form method="dialog"><button class="primary">开始学习</button></form></dialog>
 <p class="save-note" id="save-note">进度只保存在当前浏览器。换设备、换浏览器或清除网站数据后，需要重新开始。</p>
 <dialog class="celebration" id="match-celebration" aria-labelledby="celebration-title">

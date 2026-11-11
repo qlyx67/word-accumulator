@@ -6,6 +6,7 @@ const studyDetails = byId('study-details');
 const ratingControls = [...document.querySelectorAll('[data-rating]')];
 const studyGroups = [...groupsByTopic.values()].flat();
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function motionReduced(){ return reduceMotion.matches || (typeof document !== 'undefined' && document.body?.classList.contains('no-motion')); }
 let studySaved = {};
 try {
   studySaved = JSON.parse(localStorage.getItem(studyKey)) || {
@@ -14,6 +15,10 @@ try {
 } catch {}
 const groupControl = byId('map-group');
 let studyGroup = studyGroups[studySaved.group] || studyGroups[0];
+if (Array.isArray(studySaved.customKeys)) {
+  const restored = words.filter(w => studySaved.customKeys.includes(wordKey(w)));
+  if (restored.length) studyGroup = {topic: studySaved.customLabel || "专项复习", number: 1, words: restored};
+}
 let studyQueue = [];
 let studyFinished = new Set();
 let pageTurn;
@@ -51,6 +56,8 @@ function saveStudy() {
   try {
     localStorage.setItem(studyKey, JSON.stringify({
       group: studyGroups.indexOf(studyGroup),
+      customKeys: studyGroups.includes(studyGroup) ? undefined : studyGroup.words.map(wordKey),
+      customLabel: studyGroups.includes(studyGroup) ? undefined : studyGroup.topic,
       queue: studyQueue.map(wordKey),
       finished: [...studyFinished],
       seen: [...studySeen]
@@ -109,8 +116,8 @@ function showStudyWord(animate = false) {
   byId('study-progress').max = studyGroup.words.length;
   byId('study-progress').value = studyFinished.size;
   byId('study-restart').hidden = Boolean(studyWord);
-  for (const control of ratingControls) control.disabled = !studyWord;
-  if (animate && !reduceMotion.matches && studyFace.animate) {
+  for (const control of ratingControls) control.disabled = true;
+  if (animate && !motionReduced() && studyFace.animate) {
     cardMove = byId('study-word').animate([
       { transform: 'translateY(7px)', opacity: .3 },
       { transform: 'translateY(0)', opacity: 1 }
@@ -118,8 +125,17 @@ function showStudyWord(animate = false) {
   }
   renderMap();
   saveStudy();
+  document.dispatchEvent(new Event('study-card-updated'));
 }
 
+function startStudySession(entries, label) {
+  if (!entries.length) return false;
+  studyGroup = {topic:label,number:1,words:[...entries]};
+  groupControl.value = '';
+  startStudy();
+  activateMode('study', false);
+  return true;
+}
 function startStudy() {
   cancelStudyMotion();
   studyHistory = [];
@@ -136,6 +152,7 @@ function flipStudy() {
   studyDetails.hidden = !revealed;
   byId('study-flip').setAttribute('aria-expanded', String(revealed));
   byId('study-hint').textContent = revealed ? '收起释义 · 空格' : '点击翻页 · 空格';
+  for (const control of ratingControls) control.disabled = !revealed;
   if (!revealed) return;
   byId('study-meaning').textContent = [studyWord.pos, studyWord.meaning].filter(Boolean).join(' · ') || '暂无释义';
   byId('study-example').textContent = studyWord.example || extraExamples[studyWord.term] || '';
@@ -145,7 +162,7 @@ function flipStudy() {
     source.href = 'https://tatoeba.org/en/sentences/show/' + studyWord.exampleId;
     source.textContent = 'Tatoeba · ' + studyWord.exampleAuthor;
   }
-  if (!reduceMotion.matches && studyDetails.animate) {
+  if (!motionReduced() && studyDetails.animate) {
     pageTurn = studyDetails.animate([
       { transform: 'rotateX(-86deg)', opacity: .2 },
       { transform: 'rotateX(5deg)', opacity: 1, offset: .83 },
@@ -156,10 +173,11 @@ function flipStudy() {
 
 async function rateStudy(rating) {
   if (!studyWord || studyBusy) return;
+  if (!revealed) { flipStudy(); return; }
   studyBusy = true;
   const epoch = ++motionEpoch;
   const direction = rating === 1 ? -1 : 1;
-  if (!reduceMotion.matches && studyFace.animate) {
+  if (!motionReduced() && studyFace.animate) {
     const initial = studyFace.style.transform || 'translateX(0) rotate(0deg)';
     const anim = studyFace.animate([
       { transform: initial, opacity: 1 },
@@ -171,16 +189,18 @@ async function rateStudy(rating) {
   }
   studyFace.style.transform = '';
   byId('swipe-verdict').textContent = '';
-  studyHistory.push({ queue: [...studyQueue], seen: new Set(studySeen), finished: new Set(studyFinished) });
+  studyHistory.push({ queue: [...studyQueue], seen: new Set(studySeen), finished: new Set(studyFinished), learning: typeof LearningProgress !== "undefined" ? LearningProgress.checkpoint(studyWord) : null });
   if (studyHistory.length > 30) studyHistory.shift();
   const word = studyQueue.shift();
   const key = wordKey(word);
-  if (rating < 3 && !studySeen.has(key)) studyQueue.splice(rating === 1 ? 3 : studyQueue.length, 0, word);
+  if (rating < 3) studyQueue.splice(rating === 1 ? 3 : studyQueue.length, 0, word);
   else studyFinished.add(key);
   studySeen.add(key);
+  if (typeof LearningProgress !== "undefined") LearningProgress.record(word,rating);
   showStudyWord();
+  studyBusy = false;
   studyFace.dispatchEvent(new CustomEvent('study-card-rated', { bubbles: true, detail: direction }));
-  if (!reduceMotion.matches && studyFace.animate) {
+  if (!motionReduced() && studyFace.animate) {
     const anim = studyFace.animate([{ transform: 'translateY(9px) scale(.985)', opacity: .65 }, { transform: 'translateY(0) scale(1)', opacity: 1 }], { duration: 165, easing: 'cubic-bezier(.2,.8,.2,1)' });
     try { await anim.finished; } catch {}
   }
@@ -190,7 +210,7 @@ async function rateStudy(rating) {
 }
 
 function flashMatch(from, to) {
-  if (reduceMotion.matches || !Element.prototype.animate) return;
+  if (motionReduced() || !Element.prototype.animate) return;
   const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
   const dx = b.left + b.width / 2 - a.left - a.width / 2;
   const dy = b.top + b.height / 2 - a.top - a.height / 2;
@@ -220,7 +240,7 @@ function showMatchCelebration() {
   const finishedRound = round;
   celebrationTimer = setTimeout(() => {
     if (round === finishedRound && mode === 'match' && matched.size === round.length && round.length && !celebration.open) celebration.showModal();
-  }, reduceMotion.matches ? 0 : 950);
+  }, motionReduced() ? 0 : 950);
 }
 byId('study-focus').addEventListener('click', () => {
   const focused = document.body.classList.toggle('focus-study');
@@ -230,10 +250,11 @@ byId('study-focus').addEventListener('click', () => {
 });
 byId('celebration-next').addEventListener('click', () => { celebration.close(); startMatch(); });
 byId('study-undo').addEventListener('click', () => {
-  if (studyBusy || !studyHistory.length) return;
+  if (!studyHistory.length) return;
   cancelStudyMotion();
   const previous = studyHistory.pop();
   studyQueue = previous.queue; studySeen = previous.seen; studyFinished = previous.finished;
+  if (typeof LearningProgress !== "undefined") LearningProgress.restore(previous.learning);
   showStudyWord(true);
 });
 function setFlight(value) {
@@ -241,7 +262,7 @@ function setFlight(value) {
   flightMode = value === 'classic' ? 'classic' : 'swipe';
   document.body.dataset.flight = flightMode;
   document.querySelectorAll('[data-flight]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.flight === flightMode)));
-  byId('gesture-guide').textContent = flightMode === 'swipe' ? '← 左划再复习 · 轻点展开 · 右划认识 →' : '轻点展开释义 · 用下方按钮选择熟悉程度';
+  byId('gesture-guide').textContent = flightMode === 'swipe' ? '先轻点看释义，再左划复习 / 右划认识' : '先轻点看释义，再用下方按钮自评';
   try { localStorage.setItem('word-accumulator.flight', flightMode); } catch {}
 }
 document.querySelectorAll('[data-flight]').forEach(el => el.addEventListener('click', () => setFlight(el.dataset.flight)));
@@ -316,13 +337,14 @@ function endGesture(event, canceled = false) {
   const flick = distance >= 23 && elapsed <= 180 && distance / elapsed >= .42;
   if (!canceled && (distance >= current.threshold || flick)) {
     studyFace.style.transform = swipeTransform(dx);
-    rateStudy(dx > 0 ? 3 : 1);
+    if (!revealed) { studyFace.style.transform = ''; swipeVerdict.textContent = ''; flipStudy(); }
+    else rateStudy(dx > 0 ? 3 : 1);
     return;
   }
   const transform = studyFace.style.transform || swipeTransform(current.dx);
   studyFace.style.transform = '';
   swipeVerdict.textContent = '';
-  if (!reduceMotion.matches && studyFace.animate) {
+  if (!motionReduced() && studyFace.animate) {
     settleAnimation = studyFace.animate(
       [{ transform }, { transform: swipeTransform(0) }],
       { duration: 185, easing: 'cubic-bezier(.22,.75,.28,1)' }
@@ -370,7 +392,7 @@ for (const control of ratingControls) {
   control.addEventListener('click', () => rateStudy(Number(control.dataset.rating)));
 }
 document.addEventListener('keydown', event => {
-  if (mode !== 'study' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+  if ((document.body.dataset.view && document.body.dataset.view !== 'study') || mode !== 'study' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
       document.querySelector('dialog[open]') || event.target.closest('input, select, textarea, [contenteditable], summary, a')) return;
   if (event.code === 'Space' && (!event.target.closest('button') || event.target.id === 'study-flip' || event.target.matches('[data-rating]'))) {
     event.preventDefault();

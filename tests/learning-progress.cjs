@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm');
+const {dayKey,updateEntry}=require('../learning-progress.js');
+const start=new Date(2026,10,11,12).getTime();
+let entry=updateEntry(null,3,start);assert.equal(entry.stage,1);assert.equal(entry.due,start+86400000);
+entry=updateEntry(entry,3,start+1000);assert.equal(entry.stage,1,'same day repeats do not skip review stages');
+entry=updateEntry(entry,3,start+86400000);assert.equal(entry.stage,2);assert.equal(entry.due,start+4*86400000);
+entry=updateEntry(entry,1,start+86400001);assert.equal(entry.stage,0);assert.equal(entry.due,start+86400001+600000);assert.equal(entry.lapses,1);
+const data=new Map(),words=[{term:'alpha',topic:'A'},{term:'beta',topic:'A'}];
+const ctx=vm.createContext({Date,Set,Map,JSON,Object,Number,Math,words,deckStorageKey:k=>k,wordKey:w=>w.topic+':'+w.term,isMastered:()=>false,localStorage:{getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)},document:{dispatchEvent(){}},window:{addEventListener(){}},Event:class{},byId:()=>({})});
+vm.runInContext(fs.readFileSync('learning-progress.js','utf8'),ctx);const api=ctx.LearningProgress;
+assert.equal(api.plan().length,2);api.record(words[0],1);assert.equal(api.stats().count,1);api.record(words[0],3);assert.equal(api.stats().count,1,'one word never counts twice toward daily goal');assert.equal(api.stats().attempts,2);
+const checkpoint=api.checkpoint(words[1]);api.record(words[1],3);assert.equal(api.stats().count,2);api.restore(checkpoint);assert.equal(api.stats().count,1);assert.equal(api.entry(words[1]),undefined);
+const again=api.checkpoint(words[0]);api.record(words[0],1);api.restore(again);assert.equal(api.stats().attempts,2);assert.equal(api.entry(words[0]).stage,1);
+api.goal(10);assert.equal(api.stats().goal,10);api.goal(999);assert.equal(api.stats().goal,20);assert.equal(api.week().length,7);
+console.log('PASS: intervals, same-day protection, lapses, daily deduplication, undo record/count restore, goal validation, seven-day history');

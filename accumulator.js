@@ -169,6 +169,7 @@ function updateProgress() {
   byId('sand-bottom').setAttribute('y', String(150 - bottom));
   byId('sand-bottom').setAttribute('height', String(bottom));
   renderWrongWords();
+  document.dispatchEvent(new Event('vocab-progress-updated'));
 }
 
 function recordAttempt(entries, skill, wrong, star = false) {
@@ -191,7 +192,6 @@ function recordAttempt(entries, skill, wrong, star = false) {
 
 function renderWrongWords() {
   byId('wrong-side').hidden = mode === 'browse' || mode === 'study';
-  if (mode === 'browse' || mode === 'study') return;
   const wrongWords = scopedWords().filter(wasWrong);
   byId('wrong-count').textContent = wrongWords.length + ' 个';
   byId('wrong-empty').hidden = wrongWords.length > 0;
@@ -296,7 +296,7 @@ function startMatch() {
     terms.add(word.term);
     meanings.add(word.meaning);
     round.push(word);
-    if (round.length === 10) break;
+    if (round.length === (Number(byId('match-size')?.value) || 10)) break;
   }
   byId('match-range').textContent = scopeLabel(scopes.match) + ' · 本轮 ' + round.length + ' 对';
   selected = null;
@@ -345,6 +345,7 @@ function startMatch() {
       if (nextWord) {
         feedback('match-feedback', matched.size + ' / ' + round.length, 'good');
       } else {
+        if (typeof LearningProgress !== 'undefined') for (const entry of round) LearningProgress.record(entry,mistakes.has(entry)?1:3,'match');
         const missedWords = round.filter(entry => mistakes.has(entry));
         if (missedWords.length) recordAttempt(missedWords, 'match', true);
         const missed = missedWords.map(entry => entry.term);
@@ -437,10 +438,12 @@ byId('spell-form').addEventListener('submit', event => {
   answer.readOnly = true;
   const correct = value === question.term.toLowerCase().replace(/[^a-z]/g, '');
   recordAttempt([question], 'spell', !correct, correct);
+  if (typeof LearningProgress !== 'undefined') LearningProgress.record(question,correct?3:1,'spell');
   drawSpelling(!correct);
   byId('correction').hidden = correct;
   feedback('spell-feedback', correct ? '拼写正确！' : '正确拼写是 ' + question.term, correct ? 'good' : 'bad');
   byId('submit').textContent = '下一题';
+  document.dispatchEvent(new CustomEvent('spelling-answered',{detail:{word:question,correct}}));
   byId('submit').focus();
 });
 
@@ -456,7 +459,7 @@ function scopeLabel(scope) {
 const studioModes = {
   study: ['01 / FLASHCARDS', '背词卡', '选一个词组，先回忆词义，再翻卡确认。'],
   browse: ['02 / WORD INDEX', '查词', '按主题浏览，或者搜索单词和中文释义。'],
-  match: ['03 / MATCHING', '轨道配对', '每轮最多 10 对。把单词与释义连起来。'],
+  match: ['03 / MATCHING', '英汉配对', '每轮最多 10 对。把单词与释义连起来。'],
   spell: ['04 / SPELLING', '拼写', '根据词义填字母，按 Enter 提交，再按一次进入下一题。'],
   quiz: ['05 / IN CONTEXT', '句子选择', '根据上下文选词，提交后查看答案解析。']
 };
@@ -472,7 +475,7 @@ function refresh(focusSpelling = true) {
   updateProgress();
   if (mode === 'browse') renderList();
   if (mode === 'match') startMatch();
-  if (mode === 'spell') nextSpelling(focusSpelling);
+  if (mode === 'spell') { nextSpelling(focusSpelling); document.dispatchEvent(new Event('exercise-reset')); }
   document.dispatchEvent(new Event('study-controls-updated'));
 }
 

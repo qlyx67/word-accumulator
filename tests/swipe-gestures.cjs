@@ -20,9 +20,9 @@ function harness() {
   const ratings = [];
   const verdict = { textContent: '', dataset: {} };
   const ctx = vm.createContext({
-    studyFace: face, studyWord: { term: 'alpha' }, studyBusy: false, flightMode: 'swipe',
+    revealed: true, studyFace: face, studyWord: { term: 'alpha' }, studyBusy: false, flightMode: 'swipe',
     gesture: null, gestureFrame: 0, swallowClick: false, settleAnimation: undefined,
-    swipeVerdict: verdict, reduceMotion: { matches: true },
+    swipeVerdict: verdict, reduceMotion: { matches: true }, motionReduced:()=>true,
     requestAnimationFrame() { return 1; },
     cancelAnimationFrame() {},
     rateStudy(value) { ratings.push(value); }
