@@ -3,6 +3,7 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const animateNavigation = () => !reduced.matches && $('#space-motion-toggle')?.checked !== false;
   const icons = {
     study:'<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h4"/>',
     browse:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
@@ -35,6 +36,7 @@
   ].map(([key,label,type]) => `<button type="button" data-space-${type}="${key}" aria-label="${label}">${icon(key)}<span>${label}</span></button>`).join('');
   shell.after(dock);
   let activeDialog = null;
+  let panelAnimation;
   let closing = null;
   let opener = null;
   function makePanel(key, title, side) {
@@ -114,9 +116,20 @@
     const surface=d.querySelector('.space-panel-surface');
     const side=d.dataset.side;
     const end=side==='left'?'translateX(-105%)':side==='right'?'translateX(105%)':'translateY(105%)';
-    document.body.removeAttribute('data-space-panel');
+    delete document.body.dataset.spacePanel;
+    delete document.body.dataset.spaceDestination;
     closing=(async()=>{
-      if(!reduced.matches){try{await surface.animate([{transform:'none',opacity:1},{transform:end,opacity:.6}],{duration:215,easing:'cubic-bezier(.4,0,1,1)'}).finished;}catch{}}
+      if (animateNavigation()) {
+        const style = getComputedStyle(surface);
+        const initial = { transform: style.transform, opacity: style.opacity };
+        panelAnimation?.cancel();
+        panelAnimation = surface.animate([
+          initial, { transform: end + ' scale(.90)', opacity: 0 }
+        ], { duration: 270, easing: 'cubic-bezier(.4,0,.6,1)' });
+        try { await panelAnimation.finished; } catch {}
+      } else {
+        panelAnimation?.cancel();
+      }
       d.close();activeDialog=null;
       opener?.focus({preventScroll:true});opener=null;
     })().finally(()=>{closing=null;});
@@ -131,11 +144,18 @@
     $('.map-panel').hidden = mode !== 'study';
     settings.hidden=mode !== 'study';
     document.body.dataset.spacePanel=d.dataset.side;
+    document.body.dataset.spaceDestination=key;
     d.showModal();
     document.dispatchEvent(new Event('study-controls-updated'));
     const side=d.dataset.side;
     const start=side==='left'?'translateX(-105%)':side==='right'?'translateX(105%)':'translateY(105%)';
-    if(!reduced.matches)d.querySelector('.space-panel-surface').animate([{transform:start,opacity:.5},{transform:'none',opacity:1}],{duration:390,easing:'cubic-bezier(.16,1,.3,1)'});
+    if (animateNavigation()) {
+      panelAnimation = d.querySelector('.space-panel-surface').animate([
+        { transform: start + ' scale(.84)', opacity: .12 },
+        { transform: 'translate3d(0,0,0) scale(1.015)', opacity: 1, offset: .83 },
+        { transform: 'none', opacity: 1 }
+      ], { duration: 530, easing: 'cubic-bezier(.19,.8,.22,1)' });
+    }
   }
   for (const control of document.querySelectorAll('[data-space-panel]')) {
     control.setAttribute('aria-haspopup', 'dialog');
@@ -164,7 +184,14 @@
     if(mode!==previousMode){
       const oldIndex=modeOrder.indexOf(previousMode),newIndex=modeOrder.indexOf(mode);
       previousMode=mode;modeAnimation?.cancel();
-      if(!reduced.matches)modeAnimation=$('#'+mode).animate([{transform:`translateX(${newIndex>oldIndex?30:-30}px) scale(.99)`,opacity:0},{transform:'none',opacity:1}],{duration:320,easing:'cubic-bezier(.16,1,.3,1)'});
+      if (animateNavigation()) {
+        const surface = mode === 'study' ? $('#study .card-orbit') : $('#'+mode);
+        modeAnimation = surface.animate([
+          { transform: `translate3d(${newIndex>oldIndex?32:-32}px,15px,0) scale(.83)`, opacity: .12 },
+          { transform: 'translate3d(0,0,0) scale(1.012)', opacity: 1, offset: .77 },
+          { transform: 'none', opacity: 1 }
+        ], { duration: 510, easing: 'cubic-bezier(.18,.78,.23,1)' });
+      }
       window.scrollTo({top:0,behavior:'instant'});
     }
   }
@@ -181,7 +208,7 @@
   guide.textContent='新版空间导航：底部「词库」从左侧打开分组与筛选；「练习」展开配对、拼写、句子选择；「错题」从右侧打开。点空白、关闭按钮或 Esc 返回。小按钮保留至少 44 像素的触控区域。';
   const motionSetting = document.createElement('label');
   motionSetting.className = 'space-motion-setting';
-  motionSetting.innerHTML = '<input id="space-motion-toggle" type="checkbox" checked> 动态星空';
+  motionSetting.innerHTML = '<input id="space-motion-toggle" type="checkbox" checked> 星空与跃迁动画';
   help.querySelector('.panel-heading').after(guide, motionSetting);
   for (const paragraph of help.querySelectorAll('p')) {
     if (paragraph.textContent.startsWith('学习词库：')) {

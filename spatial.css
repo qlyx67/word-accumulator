@@ -176,14 +176,90 @@ body.spatial .space-panel .study-controls,body.spatial .space-panel .map-panel:n
     radial-gradient(1.5px 1.5px at 88% 61%, #d7e2ff 38%, transparent 85%);
   background-size: 370px 310px;
 }
-.space-black-hole {
+/* Each destination has its own softly lit body and a shared star camera. */
+.space-lens, .space-worlds {
   position: absolute;
-  top: clamp(-62px, -4vw, -22px);
-  right: max(-40px, calc(9vw - 150px));
-  width: clamp(310px, 42vw, 635px);
+  inset: 0;
+}
+.space-lens { transform-origin: 50% 44%; }
+.space-streaks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform-origin: 50% 44%;
+}
+.space-world {
+  position: absolute;
+  top: var(--world-top, -15vh);
+  left: var(--world-left, auto);
+  right: var(--world-right, -12vw);
+  width: var(--world-size, min(71vw, 920px));
+  aspect-ratio: 1;
+  opacity: 0;
+  transform-origin: 50% 50%;
+}
+.space-world.world-visible { opacity: 1; }
+.space-world::before {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--world-glow, #8898d2) 0, transparent 68%);
+  opacity: .10;
+}
+.space-world img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: var(--world-light, .57);
+  transform: rotate(var(--world-tilt, 0deg));
+}
+.space-world[data-world=study] {
+  --world-top: clamp(-66px, -4vw, -18px);
+  --world-right: max(-44px, calc(7vw - 140px));
+  --world-size: clamp(310px, 45vw, 640px);
+  --world-tilt: -17deg;
+  --world-light: .55;
+  --world-glow: #9b8a89;
   aspect-ratio: 3 / 2;
-  background: center / contain no-repeat url('gargantua.webp');
-  opacity: .72;
+}
+.space-world[data-world=browse] {
+  --world-right: -10vw;
+  --world-top: -16vh;
+  --world-glow: #7c9fcf;
+  --world-tilt: -9deg;
+}
+.space-world[data-world=match] {
+  --world-top: -10vh;
+  --world-right: -9vw;
+  --world-glow: #a2928c;
+  --world-tilt: -13deg;
+}
+.space-world[data-world=spell] {
+  --world-left: -23vw;
+  --world-right: auto;
+  --world-top: 5vh;
+  --world-size: min(68vw, 860px);
+  --world-glow: #bb7979;
+  --world-light: .50;
+  --world-tilt: 7deg;
+}
+.space-world[data-world=quiz] {
+  --world-top: -19vh;
+  --world-right: -16vw;
+  --world-glow: #7a89b6;
+  --world-tilt: 12deg;
+}
+.space-world[data-world=mistakes] {
+  --world-left: -14vw;
+  --world-right: auto;
+  --world-top: -14vh;
+  --world-glow: #8f8baa;
+  --world-tilt: -8deg;
 }
 .space-horizon {
   position: absolute;
@@ -194,48 +270,91 @@ body.spatial .space-panel .study-controls,body.spatial .space-panel .map-panel:n
   background: radial-gradient(ellipse at 50% 0, #26324a80, #090c1655 34%, transparent 72%);
 }
 .space-animated .space-twinkle {
-  animation: star-drift 27s ease-in-out infinite alternate;
+  animation: star-drift 13s ease-in-out infinite alternate;
 }
-.space-animated .space-black-hole {
-  animation: black-hole-drift 33s ease-in-out infinite alternate;
+.space-animated .space-world.world-visible img {
+  animation: world-drift 15s ease-in-out infinite alternate;
+}
+.space-animated .space-horizon {
+  animation: horizon-drift 19s ease-in-out infinite alternate;
 }
 @keyframes star-drift {
-  from { transform: translate3d(-6px, 2px, 0); opacity: .34; }
-  to { transform: translate3d(11px, -10px, 0); opacity: .83; }
+  from { transform: translate3d(-11px, 8px, 0); opacity: .38; }
+  to { transform: translate3d(21px, -15px, 0); opacity: .88; }
 }
-@keyframes black-hole-drift {
-  from { transform: translate3d(0, 0, 0) scale(.99); }
-  to { transform: translate3d(-12px, 7px, 0) scale(1.025); }
+@keyframes world-drift {
+  from { transform: translate3d(0, 0, 0) rotate(var(--world-tilt, 0deg)) scale(1); }
+  to { transform: translate3d(-19px, 12px, 0) rotate(calc(var(--world-tilt, 0deg) + 2deg)) scale(1.045); }
 }
+@keyframes horizon-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(12px, 8px, 0); }
+}
+
 .space-craft {
   position: absolute;
   inset: 0 auto auto 0;
-  width: 23px;
-  height: 8px;
+  width: 42px;
+  height: 15px;
   opacity: 0;
 }
-.space-craft i {
+.space-craft i, .space-craft b {
+  position: absolute;
+  inset: 0;
   display: block;
-  height: 100%;
-  border-radius: 80% 100% 85% 80%;
-  background: linear-gradient(172deg, #f7f9ff 10%, #8a9bbc 49%, #293147 78%);
-  box-shadow: 0 0 10px #9fcaff70;
+}
+.space-craft[data-shape=drop] i {
+  inset: 2px 1px 2px 3px;
+  border-radius: 12% 66% 66% 12% / 48% 65% 65% 48%;
+  background: linear-gradient(174deg, #f3faff 8%, #9cb0cb 30%, #282d44 52%, #a2bad9 69%, #526687 85%);
+  clip-path: polygon(0 46%, 32% 30%, 58% 6%, 83% 1%, 98% 27%, 100% 59%, 89% 90%, 65% 98%, 32% 70%);
+}
+.space-craft[data-shape=drop] b {
+  inset: 0 0 0 auto;
+  width: 14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 75% 35%, #e8efffac, transparent 55%);
 }
 .space-craft[data-shape=ship] i {
-  height: 6px;
-  background: linear-gradient(#a2b8d8, #e4eeff 42%, #373f57 64%);
-  border-radius: 12% 85% 85% 12%;
+  inset: 1px 0 1px 8px;
+  background: linear-gradient(171deg, #d1d8ea 11%, #98a7c0 41%, #29384f 64%, #7688a6 85%);
+  clip-path: polygon(0 33%, 24% 42%, 35% 0, 57% 9%, 72% 43%, 100% 57%, 72% 68%, 61% 89%, 33% 100%, 23% 66%, 0 78%);
 }
-.space-craft[data-shape=ship] i::before {
+.space-craft[data-shape=ship] b {
+  inset: 5px auto 5px -7px;
+  width: 19px;
+  background: linear-gradient(90deg, transparent, #99c3ff9c 80%, #e2f1ff);
+  clip-path: polygon(0 50%, 100% 12%, 100% 88%);
+}
+.space-craft[data-shape=station] {
+  width: 56px;
+  height: 27px;
+}
+.space-craft[data-shape=station] i {
+  inset: 3px 3px;
+  border: 2px solid #9eaec6;
+  border-left-color: #465670;
+  border-bottom-color: #617796;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #afc4e459, 0 0 7px #9eb5d344;
+  transform: rotate(-29deg);
+}
+.space-craft[data-shape=station] i::before,
+.space-craft[data-shape=station] i::after {
   content: '';
-  display: block;
-  width: 13px;
-  height: 10px;
-  margin-left: 2px;
-  margin-top: -2px;
-  border-radius: 2px 85% 5px 2px;
-  background: #8fa4c4;
-  clip-path: polygon(0 0, 47% 0, 100% 48%, 50% 100%, 0 100%, 26% 50%);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 48%;
+  height: 1px;
+  background: #9aaec78a;
+}
+.space-craft[data-shape=station] i::after { transform: rotate(17deg); }
+.space-craft[data-shape=station] b {
+  inset: 10px 20px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #b6c5dd, #607793 56%, #d1b78d 60%, #3f5370 77%);
+  transform: rotate(-29deg);
 }
 .space-sparks {
   position: absolute;
@@ -252,7 +371,7 @@ body.spatial .space-panel .study-controls,body.spatial .space-panel .map-panel:n
   box-shadow: 0 0 6px #c3dcff;
 }
 .spatial .space-dock { background: #191d2a; }
-.spatial .space-panel::backdrop { background: #080b148c; }
+.spatial .space-panel::backdrop { background: #06081165; }
 .spatial #study-word { font-weight: 500; letter-spacing: -.046em; }
 .space-motion-setting {
   display: flex;
@@ -263,11 +382,49 @@ body.spatial .space-panel .study-controls,body.spatial .space-panel .map-panel:n
 }
 .space-motion-setting input { min-height: 0; accent-color: #b4c9ed; }
 @media (max-width: 800px) {
-  .space-black-hole {
-    width: clamp(250px, 57vw, 385px);
-    top: 46px;
-    right: -52px;
-    opacity: .65;
+  .space-world {
+    --world-size: clamp(320px, 88vw, 590px);
+    --world-top: -10vh;
   }
+  .space-world[data-world=study] {
+    --world-size: clamp(235px, 58vw, 385px);
+    --world-top: 38px;
+    --world-right: -49px;
+    --world-light: .49;
+  }
+  .space-world[data-world=browse], .space-world[data-world=match],
+  .space-world[data-world=quiz] { --world-top: -52px; --world-right: -22vw; }
+  .space-world[data-world=spell] {
+    --world-size: clamp(300px, 82vw, 510px);
+    --world-top: 0;
+    --world-left: -27vw;
+  }
+  .space-world[data-world=mistakes] { --world-top: -70px; --world-left: -23vw; }
   .space-star-map { object-fit: cover; }
+  .space-craft { scale: .84; }
 }
+@media (max-width: 540px) {
+  .space-panel[data-side=left] .space-panel-surface,
+  .space-panel[data-side=right] .space-panel-surface {
+    top: clamp(90px, 17dvh, 146px);
+  }
+}
+
+.spatial main { transition: opacity .24s ease-out; }
+body.spatial[data-space-destination] main { opacity: .34; }
+body.spatial:has(#space-motion-toggle:not(:checked)) main { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .spatial main { transition: none; }
+}
+
+body.spatial { --world-accent: 160 174 209; }
+body.spatial[data-active-world=browse] { --world-accent: 142 185 227; }
+body.spatial[data-active-world=match] { --world-accent: 206 178 146; }
+body.spatial[data-active-world=spell] { --world-accent: 210 154 142; }
+body.spatial[data-active-world=quiz],
+body.spatial[data-active-world=mistakes] { --world-accent: 156 168 225; }
+.spatial .space-dock button[aria-current=true] {
+  background: rgb(var(--world-accent) / .16);
+  border-color: rgb(var(--world-accent) / .24);
+}
+.spatial .space-panel-surface { border-color: rgb(var(--world-accent) / .22); }

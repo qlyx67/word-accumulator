@@ -7,16 +7,41 @@
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const motionToggle = document.getElementById('space-motion-toggle');
   const storageKey = 'word-accumulator.space-motion';
+  const worlds = {
+    study: 'gargantua-soft.webp',
+    browse: 'world-ice.webp',
+    match: 'world-rings.webp',
+    spell: 'world-star.webp',
+    quiz: 'world-ocean.webp',
+    mistakes: 'world-ocean.webp'
+  };
+  const panelWorlds = { library: 'browse', practice: 'match', mistakes: 'mistakes', info: 'quiz' };
   const visual = document.createElement('div');
   visual.className = 'space-depth';
   visual.innerHTML = `
-    <canvas class="space-star-map" width="1360" height="960"></canvas>
-    <div class="space-twinkle"></div>
-    <div class="space-black-hole"></div>
+    <div class="space-lens">
+      <canvas class="space-star-map" width="1360" height="960"></canvas>
+      <div class="space-twinkle"></div>
+      <canvas class="space-streaks" width="800" height="540"></canvas>
+    </div>
     <div class="space-horizon"></div>
-    <div class="space-craft"><i></i></div>
+    <div class="space-worlds"></div>
+    <div class="space-craft"><i></i><b></b></div>
     <div class="space-sparks"><i></i><i></i><i></i><i></i></div>`;
   scene.replaceChildren(visual);
+  const worldContainer = visual.querySelector('.space-worlds');
+  const worldLayers = new Map(Object.entries(worlds).map(([name, src]) => {
+    const layer = document.createElement('div');
+    layer.className = 'space-world';
+    layer.dataset.world = name;
+    const image = new Image();
+    image.src = src;
+    image.alt = '';
+    image.decoding = 'async';
+    layer.append(image);
+    worldContainer.append(layer);
+    return [name, layer];
+  }));
 
   // This texture is painted once, at a bounded size on phones and desktops.
   const canvas = visual.querySelector('canvas');
@@ -56,6 +81,32 @@
     }
   }
 
+  const streaks = visual.querySelector('.space-streaks');
+  const rays = streaks.getContext('2d');
+  if (rays) {
+    const { width, height } = streaks;
+    for (let i = 0; i < 42; i++) {
+      const angle = i * 2.39996;
+      const radius = 108 + ((i * 47) % 325);
+      const length = 18 + ((i * 17) % 72);
+      const cx = Math.cos(angle);
+      const cy = Math.sin(angle);
+      const startX = width / 2 + cx * radius;
+      const startY = height * .46 + cy * radius;
+      const endX = startX + cx * length;
+      const endY = startY + cy * length;
+      const gradient = rays.createLinearGradient(startX, startY, endX, endY);
+      gradient.addColorStop(0, 'rgba(181,209,255,0)');
+      gradient.addColorStop(1, i % 5 ? 'rgba(181,209,255,.52)' : 'rgba(246,229,201,.82)');
+      rays.strokeStyle = gradient;
+      rays.lineWidth = i % 5 ? .9 : 1.5;
+      rays.beginPath();
+      rays.moveTo(startX, startY);
+      rays.lineTo(endX, endY);
+      rays.stroke();
+    }
+  }
+
   let enabled = true;
   try { enabled = localStorage.getItem(storageKey) !== 'off'; } catch {}
   if (motionToggle) motionToggle.checked = enabled;
@@ -65,28 +116,81 @@
   let flightTimer;
   let flightAnimation;
   let reaction;
+  let cameraAnimations = [];
+  let activeWorld;
+  let craftOrder = [];
+  const lens = visual.querySelector('.space-lens');
   let sparkAnimations = [];
   let lastReaction = -Infinity;
 
   const running = () => enabled && !reducedMotion.matches && !document.hidden;
+  function syncWorld() {
+    const destination = panelWorlds[document.body.dataset.spaceDestination] || document.body.dataset.mode;
+    const next = worldLayers.has(destination) ? destination : 'study';
+    if (next === activeWorld) return;
+    const previous = worldLayers.get(activeWorld);
+    const incoming = worldLayers.get(next);
+    const previousOpacity = previous ? getComputedStyle(previous).opacity : 0;
+    const previousTransform = previous ? getComputedStyle(previous).transform : 'none';
+    cameraAnimations.forEach(animation => animation.cancel());
+    cameraAnimations = [];
+    if (previous) previous.classList.remove('world-visible');
+    incoming.classList.add('world-visible');
+    scene.dataset.world = next;
+    document.body.dataset.activeWorld = next;
+    activeWorld = next;
+    if (!previous || !running()) return;
+
+    const direction = next === 'study' || next === 'mistakes' ? -1 : 1;
+    cameraAnimations = [
+      previous.animate([
+        { opacity: previousOpacity, transform: previousTransform },
+        { opacity: 0, transform: `translate3d(${-direction * 55}px,14px,0) scale(1.4)` }
+      ], { duration: 430, easing: 'cubic-bezier(.45,0,.65,1)' }),
+      incoming.animate([
+        { opacity: 0, transform: `translate3d(${direction * 100}px,-30px,0) scale(.42)` },
+        { opacity: .86, transform: 'translate3d(0,0,0) scale(1.08)', offset: .76 },
+        { opacity: 1, transform: 'none' }
+      ], { duration: 740, easing: 'cubic-bezier(.18,.72,.21,1)' }),
+      lens.animate([
+        { transform: 'none' },
+        { transform: `translate3d(${-direction * 24}px,10px,0) scale(1.21)`, offset: .47 },
+        { transform: 'none' }
+      ], { duration: 720, easing: 'cubic-bezier(.22,.61,.36,1)' }),
+      streaks.animate([
+        { opacity: 0, transform: 'scale(.8)' },
+        { opacity: .52, transform: 'scale(1.17)', offset: .36 },
+        { opacity: 0, transform: 'scale(1.58)' }
+      ], { duration: 620, easing: 'cubic-bezier(.2,.65,.4,1)' })
+    ];
+  }
+
   function launch() {
     if (!running()) return;
     const fromLeft = Math.random() < .5;
-    const startX = fromLeft ? -60 : innerWidth + 60;
-    const endX = fromLeft ? innerWidth + 60 : -60;
+    const startX = fromLeft ? -84 : innerWidth + 84;
+    const endX = fromLeft ? innerWidth + 84 : -84;
     const startY = innerHeight * (.09 + Math.random() * .19);
     const endY = startY + 40 + Math.random() * 100;
     const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
     const at = (x, y) => `translate3d(${x}px,${y}px,0) rotate(${angle}deg)`;
-    craft.dataset.shape = Math.random() < .5 ? 'ship' : 'drop';
-    const duration = 3900 + Math.random() * 4200;
+    if (!craftOrder.length) {
+      craftOrder = ['drop', 'station', 'ship'];
+      for (let i = craftOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [craftOrder[i], craftOrder[j]] = [craftOrder[j], craftOrder[i]];
+      }
+    }
+    const shape = craftOrder.pop();
+    craft.dataset.shape = shape;
+    const duration = { drop: 4400, station: 9700, ship: 6300 }[shape] + Math.random() * 2200;
     flightAnimation = craft.animate([
       { transform: at(startX, startY), opacity: 0 },
-      { opacity: .74, offset: .17 },
-      { opacity: .74, offset: .83 },
+      { opacity: .84, offset: .13 },
+      { opacity: .84, offset: .88 },
       { transform: at(endX, endY), opacity: 0 }
     ], { duration, easing: 'linear' });
-    flightTimer = setTimeout(launch, duration + 9000 + Math.random() * 13000);
+    flightTimer = setTimeout(launch, duration + 4700 + Math.random() * 7800);
   }
 
   function syncMotion() {
@@ -95,8 +199,9 @@
     clearTimeout(flightTimer);
     flightAnimation?.cancel();
     reaction?.cancel();
+    cameraAnimations.forEach(animation => animation.cancel());
     sparkAnimations.forEach(animation => animation.cancel());
-    if (active) flightTimer = setTimeout(launch, 3800);
+    if (active) flightTimer = setTimeout(launch, 2700);
   }
 
   function respond(x, y, direction) {
@@ -106,7 +211,7 @@
     // The moving scene and the button feedback each have a small travel range.
     reaction = visual.animate([
       { transform: 'translate3d(0,0,0)' },
-      { transform: `translate3d(${direction * 7}px,-3px,0)`, offset: .27 },
+      { transform: `translate3d(${direction * 10}px,-5px,0)`, offset: .27 },
       { transform: 'translate3d(0,0,0)' }
     ], { duration: 620, easing: 'cubic-bezier(.18,.7,.3,1)' });
     sparkAnimations.forEach(animation => animation.cancel());
@@ -141,5 +246,10 @@
   });
   reducedMotion.addEventListener('change', syncMotion);
   document.addEventListener('visibilitychange', syncMotion);
+  syncWorld();
+  new MutationObserver(syncWorld).observe(document.body, {
+    attributes: true,
+    attributeFilter: ['data-mode', 'data-space-destination']
+  });
   syncMotion();
 })();
