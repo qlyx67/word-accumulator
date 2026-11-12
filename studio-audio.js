@@ -29,7 +29,7 @@ function stopSpeech() {
   speechStatus.textContent = '';
 }
 
-function speakWithDevice(word, request) {
+function speakWithDevice(word, request, locale) {
   const synth = window.speechSynthesis;
   const fail = () => {
     if (speechRequest !== request) return;
@@ -43,9 +43,11 @@ function speakWithDevice(word, request) {
     return;
   }
   const utterance = new SpeechSynthesisUtterance(word.term);
-  const voice = synth.getVoices().find(item => item.lang.toLowerCase().startsWith('en-'));
+  const voices = synth.getVoices();
+  const voice = locale ? voices.find(item => item.lang.toLowerCase() === locale.toLowerCase()) :
+    voices.find(item => item.lang.toLowerCase().startsWith('en-'));
   if (voice) utterance.voice = voice;
-  utterance.lang = voice?.lang || 'en-US';
+  utterance.lang = locale || voice?.lang || 'en-US';
   utterance.onstart = () => {
     if (speechRequest !== request) return;
     clearTimeout(voiceTimer);
@@ -63,21 +65,22 @@ function speakWithDevice(word, request) {
   synth.speak(utterance);
 }
 
-async function speakStudy(word, status = cardSpeechStatus) {
+async function speakStudy(word, status = cardSpeechStatus, locale) {
   if (!word) return;
   stopSpeech();
   speechStatus = status;
   const request = speechRequest;
   speechStatus.textContent = '正在载入发音…';
-  if (typeof word.audio === 'string' && /^https:\/\//.test(word.audio)) {
-    const audio = new Audio(word.audio);
+  const recording = locale === 'en-GB' ? word.audioUk : locale === 'en-US' ? word.audioUs : word.audio;
+  if (typeof recording === 'string' && /^https:\/\//.test(recording)) {
+    const audio = new Audio(recording);
     dictionaryAudio = audio;
     const fallback = () => {
       if (dictionaryAudio !== audio) return;
       dictionaryAudio = null;
       audio.pause();
       clearTimeout(voiceTimer);
-      speakWithDevice(word, request);
+      speakWithDevice(word, request, locale);
     };
     audio.onplaying = () => {
       if (dictionaryAudio !== audio) return;
@@ -92,6 +95,10 @@ async function speakStudy(word, status = cardSpeechStatus) {
     audio.onerror = fallback;
     voiceTimer = setTimeout(fallback, 5000);
     audio.play().catch(fallback);
+    return;
+  }
+  if (locale) {
+    speakWithDevice(word, request, locale);
     return;
   }
   try {

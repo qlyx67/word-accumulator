@@ -303,7 +303,8 @@ studyFace.addEventListener('pointerdown', event => {
     x: event.clientX,
     y: event.clientY,
     start: event.timeStamp,
-    threshold: Math.max(27, Math.min(43, studyFace.clientWidth * .09)),
+    threshold: directSwipe ? Math.max(25, Math.min(37, studyFace.clientWidth * .08)) :
+      Math.max(27, Math.min(43, studyFace.clientWidth * .09)),
     lastX: event.clientX,
     lastTime: event.timeStamp,
     velocity: 0,

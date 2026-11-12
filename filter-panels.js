@@ -13,8 +13,15 @@ const topicCounts = new Map([...groupsByTopic].map(([name, batches]) => [
   name, batches.reduce((count, batch) => count + batch.words.length, 0)
 ]));
 
-function buildFilterPanel(select, title, detailForOption) {
-  const label = document.querySelector('label[for="' + select.id + '"]');
+function buildFilterPanel(select, title, detailForOption = () => '') {
+  const label = select.labels[0];
+  if (label?.contains(select)) {
+    const field = document.createElement('div');
+    field.className = label.className;
+    label.className = '';
+    label.replaceWith(field);
+    field.append(label, select);
+  }
   const wrapper = document.createElement('div');
   wrapper.className = 'filter-panel-control';
   const trigger = document.createElement('button');
@@ -43,6 +50,8 @@ function buildFilterPanel(select, title, detailForOption) {
     label.id = trigger.id + '-label';
     label.htmlFor = trigger.id;
     trigger.setAttribute('aria-labelledby', label.id + ' ' + selected.id);
+  } else if (select.hasAttribute('aria-label')) {
+    trigger.setAttribute('aria-label', select.getAttribute('aria-label'));
   }
   const search = document.createElement('input');
   search.type = 'search';
@@ -181,4 +190,18 @@ function buildFilterPanel(select, title, detailForOption) {
 buildFilterPanel(byId('topic'), '主题范围', option => (topicCounts.get(option.value) ?? words.length).toLocaleString() + ' 词');
 buildFilterPanel(byId('word-filter'), '练习筛选', option => filterDetails[option.value]);
 buildFilterPanel(byId('deck-select'), '学习词库', option => option.value ? '自建词库' : '内置词库');
-buildFilterPanel(byId('map-group'), '学习分组', option => studyGroups[Number(option.value)].words.length + ' 词');
+buildFilterPanel(byId('map-group'), '学习分组', option => {
+  const group = studyGroups[Number(option.value)];
+  return group ? group.words.length + ' 词' : '';
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!document.body.classList.contains('personal-learning')) return;
+  for (const [id, label] of [
+    ['quick-type', '内容类型'], ['goal-setting', '每日目标'], ['match-size', '每轮配对数量'],
+    ['lumen-intensity', '反馈强度'], ['lumen-quality', '光流与粒子']
+  ]) {
+    const select = byId(id);
+    if (select) buildFilterPanel(select, label);
+  }
+});

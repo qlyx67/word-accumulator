@@ -12,6 +12,10 @@
   const quickPreview = byId('quick-preview');
   const quickSave = byId('quick-save');
   const collectionStatus = byId('collection-status');
+  const dictionaryForm = byId('dictionary-form');
+  const dictionaryInput = byId('dictionary-input');
+  const dictionaryStatus = byId('dictionary-status');
+  const dictionaryResult = byId('dictionary-result');
   const answer = byId('translation-answer');
   const ratings = [...document.querySelectorAll('[data-translation-rating]')];
   const normalize = text => text.normalize('NFKC').trim().replace(/[‘’]/g, "'")
@@ -24,6 +28,10 @@
   let kind = 'word';
   let drafts = [];
   let lookup;
+  let quickTimer;
+  let dictionaryTimer;
+  let dictionaryTask;
+  let dictionaryEntry;
   let edit = null;
   let direction = 'en';
   let reviewOnly = false;
@@ -100,6 +108,7 @@
   }
 
   function resetDrafts() {
+    clearTimeout(quickTimer);
     lookup?.abort();
     lookup = undefined;
     drafts = [];
@@ -114,9 +123,10 @@
     resetDrafts();
     quickText.value = '';
     quickType.value = type;
-    byId('quick-add-title').textContent = '添加到收藏';
+    byId('quick-add-title').textContent = '添加单词或句子';
     byId('quick-form').hidden = false;
-    quickSave.textContent = '加入收藏';
+    quickSave.textContent = '加入学习';
+    document.dispatchEvent(new Event('study-controls-updated'));
     dialog.showModal();
     quickText.focus();
   }
@@ -158,10 +168,11 @@
     input.readOnly = locked;
     if (key === 'en' || key === 'term' || key === 'example') input.lang = 'en';
     input.addEventListener('input', () => {
-      if (key === 'term' && normalize(row.term) !== normalize(input.value)) delete row.audio;
+      if (key === 'term' && normalize(row.term) !== normalize(input.value)) {
+        for (const field of ['audio', 'audioUs', 'audioUk', 'phonetic', 'phoneticUs', 'phoneticUk']) delete row[field];
+      }
       if (key === 'example' || key === 'term') {
-        delete row.exampleId;
-        delete row.exampleAuthor;
+        for (const field of ['exampleId', 'exampleAuthor', 'exampleZh', 'exampleZhId', 'exampleZhAuthor', 'exampleMachineTranslated']) delete row[field];
       }
       row[key] = input.value.trim();
     });
@@ -192,16 +203,8 @@
         addField(fields, row, 'meaning', '释义');
         entry.append(fields);
         const field = addField(entry, row, 'example', '例句', true);
-        if (row.exampleId) {
-          const source = document.createElement('a');
-          source.className = 'tag';
-          source.href = 'https://tatoeba.org/en/sentences/show/' + encodeURIComponent(row.exampleId);
-          source.textContent = 'Tatoeba · ' + row.exampleAuthor;
-          source.target = '_blank';
-          source.rel = 'noopener';
-          field.parentElement.after(source);
-          field.addEventListener('input', () => source.remove(), { once: true });
-        }
+        appendExampleDetails(entry, row);
+        field.addEventListener('input', () => entry.querySelector('.example-details')?.remove(), { once: true });
       } else {
         for (const lang of [row.source, otherLanguage(row.source)]) {
           addField(entry, row, lang, lang === 'en' ? '英文' : '中文', true);
@@ -213,41 +216,27 @@
     byId('quick-review').hidden = !drafts.length;
   }
 
-  async function fillWord(row, signal) {
-    await lookupDeckWord(row, true, signal);
-    if (signal.aborted || row.example) return;
-
-    const request = new AbortController();
-    const abort = () => request.abort();
-    signal.addEventListener('abort', abort, { once: true });
-    const timeout = setTimeout(abort, 2000);
-    try {
-      const parameters = new URLSearchParams({
-        lang: 'eng', q: '"' + row.term + '"', word_count: '5-18', limit: '8', showtrans: 'none'
-      });
-      const response = await fetch('https://api.tatoeba.org/v1/sentences?' + parameters,
-        { signal: request.signal, referrerPolicy: 'no-referrer' });
-      if (!response.ok) return;
-      const { data } = await response.json();
-      const escapedTerm = row.term.replace(/['’]/g, "['’]");
-      const exact = new RegExp('\\b' + escapedTerm + '\\b', 'i');
-      const example = data?.find(item => item.owner && !item.is_unapproved &&
-        typeof item.text === 'string' && exact.test(item.text));
-      if (example) {
-        row.example = example.text;
-        row.exampleId = example.id;
-        row.exampleAuthor = example.owner;
-      }
-    } catch {
-      // The editable preview also works when example search is unavailable.
-    } finally {
-      signal.removeEventListener('abort', abort);
-      clearTimeout(timeout);
+  function appendExampleDetails(container, row) {
+    const details = document.createElement('div');
+    details.className = 'example-details';
+    if (row.exampleZh) {
+      const translation = document.createElement('p');
+      translation.textContent = row.exampleZh + (row.exampleMachineTranslated ? '（机器翻译）' : '');
+      details.append(translation);
     }
+    for (const [id, author] of [[row.exampleId, row.exampleAuthor], [row.exampleZhId, row.exampleZhAuthor]]) {
+      if (!id) continue;
+      const source = document.createElement('a');
+      source.href = 'https://tatoeba.org/en/sentences/show/' + encodeURIComponent(id);
+      source.textContent = 'Tatoeba · ' + author;
+      source.target = '_blank';
+      source.rel = 'noopener';
+      details.append(source);
+    }
+    if (details.childElementCount) container.append(details);
   }
 
-  byId('quick-form').addEventListener('submit', async event => {
-    event.preventDefault();
+  async function previewQuick() {
     resetDrafts();
     const lines = quickText.value.split(/\r?\n/).filter(line => line.trim());
     if (lines.length > 50) {
@@ -268,7 +257,8 @@
     let next = 0;
     await Promise.all(Array.from({ length: Math.min(5, wordsToLookup.length) }, async () => {
       while (next < wordsToLookup.length && !task.signal.aborted) {
-        await fillWord(wordsToLookup[next++], task.signal);
+        const row = wordsToLookup[next++];
+        WordDictionary.fill(row, await WordDictionary.lookup(row.term, task.signal));
       }
     }));
     if (task.signal.aborted) return;
@@ -281,6 +271,11 @@
     if (wordsToLookup.some(row => !row.meaning || !row.example)) messages.push('有些词缺少释义或例句，可以手动补上，也可先保存。');
     if (rows.some(row => row.kind === 'sentence' && (!row.zh || !row.en))) messages.push('句子可以先收藏。补齐中英两栏后，就能用于翻译练习。');
     quickStatus.textContent = messages.join(' ');
+  }
+
+  byId('quick-form').addEventListener('submit', event => {
+    event.preventDefault();
+    previewQuick();
   });
 
   function announce(message) {
@@ -289,6 +284,140 @@
     toast.textContent = document.body.dataset.view === 'collection' ? '' : message;
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => { toast.textContent = ''; }, 3200);
+  }
+
+  function renderDictionary(entry, pending = false) {
+    dictionaryResult.replaceChildren();
+    dictionaryResult.hidden = !(entry?.meaning || entry?.englishMeaning || entry?.example);
+    if (dictionaryResult.hidden) return;
+
+    const heading = document.createElement('h2');
+    heading.lang = 'en';
+    heading.textContent = entry.term;
+    const pronunciationBar = document.createElement('div');
+    pronunciationBar.className = 'dictionary-audio';
+    const audioStatus = document.createElement('span');
+    audioStatus.setAttribute('role', 'status');
+    for (const [label, locale, ipa] of [['英音', 'en-GB', entry.phoneticUk], ['美音', 'en-US', entry.phoneticUs]]) {
+      const control = button(label + (ipa ? ' ' + ipa : ''), () => speakStudy(entry, audioStatus, locale));
+      control.setAttribute('aria-label', '播放' + label);
+      pronunciationBar.append(control);
+    }
+    if (entry.phonetic && !entry.phoneticUk && !entry.phoneticUs) {
+      const ipa = document.createElement('span');
+      ipa.lang = 'en-fonipa';
+      ipa.textContent = '/' + entry.phonetic.replace(/^\/|\/$/g, '') + '/';
+      pronunciationBar.prepend(ipa);
+    }
+    pronunciationBar.append(audioStatus);
+    dictionaryResult.append(heading, pronunciationBar);
+
+    const meanings = document.createElement('dl');
+    meanings.className = 'dictionary-meanings';
+    const groups = entry.definitions || [[entry.pos || '释义', [entry.meaning || entry.englishMeaning || '']]];
+    for (const [pos, senses] of groups) {
+      const text = senses.filter(Boolean).join('；');
+      if (!text) continue;
+      const label = document.createElement('dt');
+      label.textContent = pos;
+      const definition = document.createElement('dd');
+      definition.textContent = text;
+      meanings.append(label, definition);
+    }
+    if (meanings.childElementCount) dictionaryResult.append(meanings);
+
+    if (entry.example) {
+      const example = document.createElement('div');
+      example.className = 'dictionary-example';
+      const title = document.createElement('h3');
+      title.textContent = '例句';
+      const sentence = document.createElement('p');
+      sentence.lang = 'en';
+      sentence.textContent = entry.example;
+      example.append(title, sentence);
+      appendExampleDetails(example, entry);
+      dictionaryResult.append(example);
+    }
+
+    const saved = savedWords().some(word => WordDictionary.normalize(word.term) === entry.term);
+    const add = button(saved ? '已加入学习' : entry.meaning ? '＋ 加入学习' : '＋ 补充释义后添加', () => {
+      const draft = { kind: 'word', term: entry.term, pos: '', meaning: '', example: '' };
+      WordDictionary.fill(draft, entry);
+      if (!entry.meaning) {
+        openQuick('word');
+        quickText.value = draft.term;
+        drafts = [draft];
+        renderDrafts();
+        return;
+      }
+      try {
+        const entries = savedWords();
+        if (!entries.some(word => WordDictionary.normalize(word.term) === entry.term)) {
+          const { kind: ignored, ...fields } = draft;
+          entries.push({ ...fields, topic: collectionName });
+          storeChanges(entries);
+        }
+        kind = 'word';
+        if (activeDeck?.id === collectionId) {
+          try { sessionStorage.setItem('word-accumulator.lookup-term', entry.term); } catch {}
+          reloadInto(collectionId, 'lookup', '已加入学习，可在「已添加」查看。');
+          return;
+        }
+        announce('已加入学习，可在「已添加」查看。');
+        add.textContent = '已加入学习';
+        add.disabled = true;
+      } catch {
+        dictionaryStatus.textContent = '无法保存，请检查浏览器存储空间。';
+      }
+    });
+    add.className = 'primary dictionary-add';
+    add.disabled = saved || pending && !(entry.meaning && entry.exampleZh);
+    dictionaryResult.append(add);
+  }
+
+  function cancelDictionary() {
+    clearTimeout(dictionaryTimer);
+    dictionaryTask?.abort();
+    dictionaryTask = undefined;
+  }
+
+  async function searchDictionary() {
+    cancelDictionary();
+    const term = WordDictionary.normalize(dictionaryInput.value);
+    dictionaryEntry = undefined;
+    dictionaryResult.hidden = true;
+    if (!termPattern.test(term)) {
+      dictionaryStatus.textContent = term ? '请输入英文单词或短语，例如 plot。' : '';
+      return;
+    }
+    const task = new AbortController();
+    dictionaryTask = task;
+    dictionaryStatus.textContent = '正在查词…';
+    const entry = await WordDictionary.lookup(term, task.signal, local => {
+      renderDictionary(local, true);
+      if (!dictionaryResult.hidden) dictionaryStatus.textContent = local.exampleZh ? '' : '正在补充例句和发音…';
+    });
+    if (task.signal.aborted) return;
+    dictionaryTask = undefined;
+    dictionaryEntry = entry;
+    renderDictionary(entry);
+    if (dictionaryResult.hidden) {
+      dictionaryStatus.textContent = '暂未查到这个词。检查拼写后可再试一次。';
+      return;
+    }
+    const notes = [];
+    if (!entry.meaning) notes.push('暂无中文释义。');
+    else if (entry.translated) notes.push('中文释义由 MyMemory 翻译，供参考。');
+    if (!entry.exampleZh) notes.push(entry.example ? '暂无例句的中文译文。' : '暂无可用例句。');
+    dictionaryStatus.textContent = notes.join(' ');
+  }
+
+  function queueDictionarySearch() {
+    cancelDictionary();
+    dictionaryEntry = undefined;
+    dictionaryResult.hidden = true;
+    dictionaryStatus.textContent = '';
+    if (dictionaryInput.value.trim()) dictionaryTimer = setTimeout(searchDictionary, 500);
   }
 
   function saveDrafts() {
@@ -390,12 +519,7 @@
         example.lang = 'en';
         example.textContent = item.example;
         text.append(example);
-        if (item.exampleId) {
-          const source = document.createElement('a');
-          source.href = 'https://tatoeba.org/en/sentences/show/' + encodeURIComponent(item.exampleId);
-          source.textContent = 'Tatoeba · ' + item.exampleAuthor;
-          text.append(source);
-        }
+        appendExampleDetails(text, item);
       }
       const actions = document.createElement('div');
       actions.className = 'collection-row-actions';
@@ -529,8 +653,30 @@
     }
   });
 
-  quickText.addEventListener('input', resetDrafts);
-  quickType.addEventListener('change', resetDrafts);
+  function queueQuickPreview() {
+    resetDrafts();
+    const text = quickText.value.trim();
+    if (/\r|\n/.test(text)) return;
+    const row = parseQuickLine(text, quickType.value);
+    if (row?.kind === 'word' && row.term.length >= 2) quickTimer = setTimeout(previewQuick, 500);
+  }
+
+  quickText.addEventListener('input', queueQuickPreview);
+  quickType.addEventListener('change', queueQuickPreview);
+  dictionaryInput.addEventListener('input', event => {
+    if (!event.isComposing) queueDictionarySearch();
+  });
+  dictionaryInput.addEventListener('compositionend', queueDictionarySearch);
+  dictionaryForm.addEventListener('submit', event => {
+    event.preventDefault();
+    searchDictionary();
+  });
+  byId('dictionary-suggestions').addEventListener('click', event => {
+    const suggestion = event.target.closest('[data-lookup]');
+    if (!suggestion) return;
+    dictionaryInput.value = suggestion.dataset.lookup;
+    searchDictionary();
+  });
   byId('quick-close').onclick = () => dialog.close();
   dialog.addEventListener('close', () => { resetDrafts(); stopSpeech(); });
   quickSave.onclick = () => {
@@ -559,13 +705,19 @@
   byId('translation-repeat').onclick = startRound;
   document.addEventListener('studio-view-changed', () => {
     const view = document.body.dataset.view;
+    if (view !== 'lookup') cancelDictionary();
+    else if (dictionaryEntry) renderDictionary(dictionaryEntry);
+    else if (dictionaryInput.value.trim()) searchDictionary();
     if (view === 'collection') renderCollection();
     if (view === 'translate') showTranslation();
     if (view === 'mistakes') renderTranslationReview();
   });
 
   window.addEventListener('storage', event => {
-    if (event.key === deckListKey) renderCollection();
+    if (event.key === deckListKey) {
+      renderCollection();
+      if (dictionaryEntry) renderDictionary(dictionaryEntry);
+    }
     if (event.key === sentenceStorageKey) {
       roundDirty = true;
       renderCollection();
@@ -576,6 +728,14 @@
 
   renderCollection();
   try {
+    const term = sessionStorage.getItem('word-accumulator.lookup-term');
+    if (term) {
+      sessionStorage.removeItem('word-accumulator.lookup-term');
+      if (document.body.dataset.view === 'lookup') {
+        dictionaryInput.value = term;
+        searchDictionary();
+      }
+    }
     const notice = sessionStorage.getItem('word-accumulator.collection-notice');
     if (notice) {
       announce(notice);

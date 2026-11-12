@@ -28,18 +28,19 @@
 <link rel="stylesheet" href="orbit.css?v=1">
 <script defer src="pronunciation.js?v=1"></script>
 <script defer src="pronunciation-audit.js?v=1"></script>
-<script defer src="studio-audio.js?v=personal1"></script>
+<script defer src="studio-audio.js?v=dictionary1"></script>
 <script defer src="learning-progress.js?v=1"></script>
-<script defer src="star-study.js?v=personal2"></script>
-<script defer src="filter-panels.js?v=1"></script>
+<script defer src="star-study.js?v=dictionary1"></script>
+<script defer src="filter-panels.js?v=dictionary1"></script>
 <link rel="stylesheet" href="spatial.css?v=studio4">
 <script defer src="backup-validation.js?v=2"></script>
-<script defer src="spatial.js?v=personal1"></script>
+<script defer src="spatial.js?v=dictionary1"></script>
 <script defer src="practice-sessions.js?v=1"></script>
 <link rel="stylesheet" href="luminous.css?v=2">
 <script defer src="luminous.js?v=4"></script>
-<link rel="stylesheet" href="personal-learning.css?v=2">
-<script defer src="personal-learning.js?v=2"></script>
+<link rel="stylesheet" href="personal-learning.css?v=3">
+<script defer src="word-dictionary.js?v=1"></script>
+<script defer src="personal-learning.js?v=3"></script>
 </head>
 <body class="personal-learning"><div class="studio-shell">
 <aside class="studio-rail" aria-label="导航">
@@ -97,11 +98,26 @@
   <button type="button" data-exercise="quiz">选词</button>
   <button type="button" data-view="translate">翻译</button>
 </nav>
-<nav class="collection-tabs" aria-label="收藏内容" hidden>
-  <button type="button" data-view="collection">我的收藏</button>
-  <button type="button" data-view="browse">词库查词</button>
+<nav class="collection-tabs" aria-label="查词与词库" hidden>
+  <button type="button" data-view="lookup">英汉词典</button>
+  <button type="button" data-view="collection">已添加</button>
+  <button type="button" data-view="browse">浏览词库</button>
 </nav>
-<section id="personal-collection" hidden aria-label="我的收藏">
+<section id="dictionary" hidden aria-label="英汉词典">
+  <form id="dictionary-form" role="search">
+    <input id="dictionary-input" type="search" lang="en" aria-label="英文单词或短语" placeholder="输入英文单词或短语" maxlength="90" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" required>
+    <button type="submit" class="primary">查词</button>
+  </form>
+  <div id="dictionary-suggestions" aria-label="试查单词">
+    <span>试一试</span>
+    <button type="button" lang="en" data-lookup="plot">plot</button>
+    <button type="button" lang="en" data-lookup="capture">capture</button>
+    <button type="button" lang="en" data-lookup="hesitate">hesitate</button>
+  </div>
+  <p id="dictionary-status" role="status"></p>
+  <article id="dictionary-result" hidden></article>
+</section>
+<section id="personal-collection" hidden aria-label="已添加的单词与句子">
   <div class="collection-head">
     <div class="collection-types" role="group" aria-label="收藏类型">
       <button type="button" data-collection="word" aria-pressed="true">单词</button>
@@ -223,7 +239,7 @@
 <ol class="wrong-list sentence-list" id="sentence-list"></ol><div id="translation-review"></div></section></div>
 </aside></div>
 <dialog id="quick-add" class="studio-dialog" aria-labelledby="quick-add-title">
-  <div class="dialog-head"><h2 id="quick-add-title">添加到收藏</h2><button type="button" class="space-icon" id="quick-close" aria-label="关闭">×</button></div>
+  <div class="dialog-head"><h2 id="quick-add-title">添加单词或句子</h2><button type="button" class="space-icon" id="quick-close" aria-label="关闭">×</button></div>
   <div class="dialog-body">
     <form id="quick-form">
       <label for="quick-text">输入单词或句子</label>
@@ -232,13 +248,13 @@
       <div class="quick-controls">
         <label for="quick-type">内容类型</label>
         <select id="quick-type"><option value="auto">自动识别</option><option value="word">英文单词或短语</option><option value="en">英文句子</option><option value="zh">中文句子</option></select>
-        <button type="submit" class="primary" id="quick-preview">预览</button>
+        <button type="submit" class="primary" id="quick-preview">查看结果</button>
       </div>
     </form>
     <p id="quick-status" class="muted" role="status"></p>
     <div id="quick-review" hidden>
       <div id="quick-rows"></div>
-      <button type="button" id="quick-save" class="primary">加入收藏</button>
+      <button type="button" id="quick-save" class="primary">加入学习</button>
     </div>
   </div>
 </dialog>
@@ -272,5 +288,5 @@
 <p class="tag">点卡片外的空白处也可以关闭</p>
 </div>
 </dialog>
-<footer>词头按雅思词汇 PDF 的 22 个主题整理。扩充释义来自 <a href="https://github.com/skywind3000/ECDICT">ECDICT</a>（<a href="ECDICT-LICENSE.txt">MIT</a>），部分例句来自 <a href="https://tatoeba.org/">Tatoeba</a>（<a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a>）。星星保存在当前浏览器。</footer>
+<footer>词头按雅思词汇 PDF 的 22 个主题整理。站内释义与音标来自 <a href="https://github.com/skywind3000/ECDICT">ECDICT</a>（<a href="ECDICT-LICENSE.txt">MIT</a>），查词数据经 <a href="https://github.com/imfiiish/wordlists">Wordlists</a> 整理（<a href="dictionary/LICENSE.txt">MIT</a>）。部分例句来自 <a href="https://tatoeba.org/">Tatoeba</a>（<a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a>）。星星保存在当前浏览器。</footer>
 </main></div></body></html>
