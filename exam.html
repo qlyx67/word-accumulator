@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10251f">
+  <meta name="description" content="把自己的英语资料，变成可以练习的备考学习包。保留原文，练首字母、听写和双向翻译。">
+  <title>备考学习包 · 单词累积器</title>
+  <link rel="stylesheet" href="exam.css?v=1">
+  <script defer src="exam-core.js?v=1"></script>
+  <script defer src="exam-store.js?v=1"></script>
+  <script defer src="exam-bridge.js?v=1"></script>
+  <script defer src="word-dictionary.js?v=packs1"></script>
+  <script defer src="studio-audio.js?v=localvoice1"></script>
+  <script defer src="exam-app.js?v=1"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="返回单词累积器"><svg viewBox="0 0 32 40" aria-hidden="true"><path d="M5 2h22v5H5zm0 31h22v5H5zM8 7h16v7l-6 6 6 6v7H8v-7l6-6-6-6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 11h12v3l-6 5-6-5zm0 19 6-6 6 6z" fill="currentColor"/></svg><span>单词累积器<small>WORD ACCUMULATOR</small></span></a>
+    <nav class="topnav" aria-label="备考导航"><button data-go="home" aria-current="page">学习包</button><button data-go="library">我的积累</button><a href="index.html">查词与背词 ↗</a></nav>
+    <button class="primary compact" data-action="new">＋ 添加资料</button>
+  </header>
+  <main id="main">
+    <div id="notice" role="status" aria-live="polite"></div>
+    <section id="view-home" class="view">
+      <div class="hero">
+        <div class="hero-copy"><p class="eyebrow">YOUR MATERIALS. YOUR PROGRESS.</p><h1>把要考的，<br><em>一点点变成会的。</em></h1><p class="intro">带上你的词表、课文和重点句。<br>整理成学习包，按自己的节奏练习。</p><div class="actions"><button class="primary" data-action="new">添加我的资料 <span>↗</span></button><button class="quiet" id="sample">先体验示例 →</button></div><p class="hero-note">图片与文字均可导入 · 每条词句保留来源</p></div>
+        <div class="hero-art" aria-hidden="true"><div class="art-orbit"></div><div class="sheet sheet-back"><span>你的课堂资料</span><div></div><div></div><div></div></div><div class="sheet sheet-front"><div class="sheet-top"><span>IN CONTEXT</span><i>01</i></div><strong>address</strong><p>v. 处理；解决</p><div class="sheet-example">We need to <mark>address</mark><br>this problem.</div><div class="sheet-footer"><span>原文有迹可循</span><b>↗</b></div></div><div class="art-pill"><span>✓</span> 每一次练习，都有积累</div></div>
+      </div>
+      <div class="section-head"><div><p class="eyebrow">MY STUDY PACKS</p><h2>这一次，准备学什么？</h2></div><button class="text-button" id="toggle-archived">查看已归档</button></div>
+      <div id="pack-list" class="pack-grid"><p class="muted">正在读取学习包…</p></div>
+      <div class="storage-strip"><span class="status-dot"></span><p>学习包保存在当前浏览器。导出备份，就能带到另一台设备。</p><button class="text-button" id="backup-all">导出全部</button><label class="text-button file-label">导入备份<input id="backup-file" type="file" accept=".json,application/json"></label></div>
+    </section>
+    <section id="view-import" class="view" hidden>
+      <button class="back-link" data-go="home">← 返回学习包</button>
+      <div class="page-heading"><p class="eyebrow">MAKE IT YOURS</p><h1 id="import-heading">从你的资料开始。</h1><p class="muted">先整理，再确认。每一条都可以修改。</p></div>
+      <div class="steps" aria-label="创建步骤"><span id="step-one" class="active"><b>1</b> 添加资料</span><i></i><span id="step-two"><b>2</b> 核对与计划</span><i></i><span><b>3</b> 开始练习</span></div>
+      <div id="import-inputs" class="import-grid">
+        <section class="panel"><div class="section-head small"><h2>粘贴文字</h2><button class="text-button" id="fill-example">填入格式示例</button></div><label class="sr-only" for="import-text">词表或双语句子</label><textarea id="import-text" rows="12" maxlength="120000" placeholder="单词 | 中文释义 | 英文例句&#10;address | 处理；解决 | We need to address this problem.&#10;&#10;也可以添加双语句子：&#10;We need more time. | 我们需要更多时间。"></textarea><p class="hint">一行一条；支持单词、短语和双语句子。只有英文的词条会用站内词典补齐释义，句子译文需核对补充。</p></section>
+        <section class="panel"><h2>或上传图片、文本</h2><label class="drop-zone" id="drop-zone"><span class="upload-icon">↑</span><strong>选择资料，或拖到这里</strong><span>JPG / PNG / WebP · TXT / CSV / TSV</span><span>最多 10 个文件，每个不超过 12 MB</span><input id="source-files" type="file" multiple accept="image/jpeg,image/png,image/webp,.txt,.csv,.tsv"></label><p class="hint">图片在你的浏览器中识别，不上传原图。首次使用需下载识别组件，识别完成后可检查原文。</p><div id="source-list" class="source-list"></div><div id="ocr-progress" hidden><progress id="ocr-meter" max="1" value="0"></progress><p id="ocr-status" role="status"></p><button class="text-button" id="cancel-ocr">停止识别</button></div></section>
+      </div>
+      <div id="preview-actions" class="actions end"><span id="draft-status" class="hint"></span><button class="primary" id="preview">整理并预览 →</button></div>
+      <section id="review-panel" hidden>
+        <div class="review-layout">
+          <div><div class="section-head small"><div><h2>核对你的学习内容</h2><p id="review-summary" class="muted"></p></div><button class="text-button" id="back-to-sources">← 修改资料</button></div><div class="review-tools"><label class="check"><input type="checkbox" id="select-all" checked> 全部选入学习</label><button class="text-button" id="add-row">＋ 手动加一条</button></div><p id="parse-notice" class="hint"></p><div id="review-rows"></div><div class="pager"><button id="prev-page">← 上一页</button><span id="page-label"></span><button id="next-page">下一页 →</button></div></div>
+          <aside class="panel plan-panel"><p class="eyebrow">A PLAN THAT FITS</p><h2>这次怎么学？</h2><label class="field">学习包名称<input id="pack-name" maxlength="80" placeholder="例如：大学英语 U1–U4 小测"></label><label class="field">考试日期<input id="exam-date" type="date" required></label><fieldset><legend>每天花多少时间？</legend><div class="pill-options" id="minute-options"><button type="button" data-minutes="5">5 分钟</button><button type="button" data-minutes="10">10 分钟</button><button type="button" data-minutes="15" aria-pressed="true">15 分钟</button><button type="button" data-minutes="20">20 分钟</button><button type="button" data-minutes="30">30 分钟</button></div></fieldset><fieldset><legend>想练哪些题型？</legend><div class="mode-options"><label class="check"><input type="checkbox" name="pack-mode" value="cloze" checked><span>首字母填空<small>词义＋原文语境</small></span></label><label class="check"><input type="checkbox" name="pack-mode" value="listen" checked><span>听写<small>听得懂，也写得出</small></span></label><label class="check"><input type="checkbox" name="pack-mode" value="en-zh" checked><span>英译中<small>理解句子的意思</small></span></label><label class="check"><input type="checkbox" name="pack-mode" value="zh-en" checked><span>中译英<small>把表达用起来</small></span></label></div></fieldset><p class="hint">首字母与听写使用单词／短语，双向翻译使用完整句子。后续可以修改范围和计划。</p><button class="primary full" id="save-pack">确认并创建学习包 →</button><p id="save-status" role="status" class="hint"></p></aside>
+        </div>
+      </section>
+    </section>
+    <section id="view-pack" class="view" hidden><div id="pack-detail"></div></section>
+    <section id="view-practice" class="view" hidden>
+      <div class="practice-top"><button class="back-link" id="leave-practice">← 保存并返回</button><span id="practice-name"></span><span id="practice-count"></span></div><progress id="practice-meter" max="10" value="0" aria-label="本轮练习进度"></progress>
+      <div id="question-card" class="question-card"><div class="question-eyebrow"><span id="question-type" class="eyebrow"></span><button class="text-button" id="question-source">查看来源 ↗</button></div><div id="listen-area" hidden><button class="listen-button" id="listen-play" aria-label="播放听写发音">♪</button><p>点击播放，可重复听</p></div><p id="question-prompt" class="question-prompt" lang="en"></p><p id="question-clue" class="question-clue"></p><div class="speech-line"><button id="question-play" class="text-button">♪ 朗读原句</button><span id="speech-status" role="status"></span><div class="accent-control"><button data-accent="en-GB" aria-pressed="false">英音</button><button data-accent="en-US" aria-pressed="true">美音</button></div></div><form id="answer-form"><label id="answer-label" for="practice-answer">你的答案</label><textarea id="practice-answer" rows="2" maxlength="1500" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="先回忆，再写下答案"></textarea><div class="answer-actions"><button type="button" class="text-button" id="reveal-answer">暂时不会，看答案</button><button type="submit" class="primary" id="check-answer">检查答案 ↵</button></div></form><div id="answer-feedback" role="status" hidden></div><div id="self-review" hidden><p>表达不同也可以正确。请核对否定、数量、时间和主客体，再判断意思是否一致。</p><label class="check"><input id="remember-alternative" type="checkbox"> 保存这次表达为可接受答案</label><div class="actions"><button id="self-wrong">还需复习</button><button id="self-correct" class="primary">意思一致</button></div></div><button id="next-question" class="primary full" hidden>下一题 →</button></div><div id="session-result" class="panel result-panel" hidden></div>
+    </section>
+    <section id="view-library" class="view" hidden><div class="page-heading"><p class="eyebrow">EVERY WORD STAYS WITH YOU</p><h1>每次备考，都有积累。</h1><p class="muted">按词义保留不同语境，归档学习包中的词句也在这里。</p></div><label class="sr-only" for="library-search">搜索累积的词句</label><input id="library-search" class="search" type="search" placeholder="搜索单词、句子或中文意思"><p id="library-count" class="hint"></p><div id="library-list"></div><button id="library-more" class="quiet" hidden>显示更多</button></section>
+  </main>
+  <footer class="site-footer"><span>一点点学，慢慢累积。<small>made by lyxx</small></span><span>当前为本地学习版 · <a href="README.md">数据与来源说明</a></span></footer>
+  <dialog id="source-dialog" class="source-dialog"><div class="dialog-head"><div><p class="eyebrow">BACK TO THE SOURCE</p><h2 id="source-title">原始资料</h2></div><button class="icon-button" id="source-close" aria-label="关闭来源">×</button></div><div id="source-content"></div></dialog>
+  <dialog id="confirm-dialog"><h2 id="confirm-title"></h2><p id="confirm-description"></p><div class="actions"><button id="confirm-cancel">取消</button><button id="confirm-ok" class="primary">确认</button></div></dialog>
+  <noscript>请开启 JavaScript 后使用学习包功能。已有学习数据不会被修改。</noscript>
+</body>
+</html>

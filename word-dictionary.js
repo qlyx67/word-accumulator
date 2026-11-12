@@ -182,5 +182,5 @@ const WordDictionary = (() => {
     }
   }
 
-  return { lookup, normalize, fill };
+  return { lookup, local: term => getLocal(normalize(term)), normalize, fill };
 })();
