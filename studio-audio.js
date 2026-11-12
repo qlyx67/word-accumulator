@@ -1,6 +1,7 @@
 'use strict';
 
 const cardSpeechStatus = byId('speech-status');
+const bundledPronunciations = new Set(['plot', 'capture', 'hesitate']);
 let speechStatus = cardSpeechStatus;
 let audioContext;
 let clipSource;
@@ -71,8 +72,12 @@ async function speakStudy(word, status = cardSpeechStatus, locale) {
   speechStatus = status;
   const request = speechRequest;
   speechStatus.textContent = '正在载入发音…';
-  const recording = locale === 'en-GB' ? word.audioUk : locale === 'en-US' ? word.audioUs : word.audio;
-  if (typeof recording === 'string' && /^https:\/\//.test(recording)) {
+  const term = word.term.toLowerCase();
+  const accent = locale === 'en-GB' ? 'uk' : 'us';
+  const bundled = bundledPronunciations.has(term) && 'dictionary/audio/' + term + '-' + accent + '.mp3';
+  const remote = locale === 'en-GB' ? word.audioUk : locale === 'en-US' ? word.audioUs : word.audio;
+  const recording = bundled || (typeof remote === 'string' && /^https:\/\//.test(remote) && remote);
+  if (recording) {
     const audio = new Audio(recording);
     dictionaryAudio = audio;
     const fallback = () => {

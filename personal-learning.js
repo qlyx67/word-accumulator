@@ -303,7 +303,7 @@
       control.setAttribute('aria-label', '播放' + label);
       pronunciationBar.append(control);
     }
-    if (entry.phonetic && !entry.phoneticUk && !entry.phoneticUs) {
+    if (entry.phonetic && (!entry.phoneticUk || !entry.phoneticUs)) {
       const ipa = document.createElement('span');
       ipa.lang = 'en-fonipa';
       ipa.textContent = '/' + entry.phonetic.replace(/^\/|\/$/g, '') + '/';
