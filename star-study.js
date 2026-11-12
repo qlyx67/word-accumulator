@@ -177,6 +177,7 @@ async function rateStudy(rating) {
   studyBusy = true;
   const epoch = ++motionEpoch;
   const direction = rating === 1 ? -1 : 1;
+  if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('lumen-recall', {detail:rating}));
   if (!motionReduced() && studyFace.animate) {
     const initial = studyFace.style.transform || 'translateX(0) rotate(0deg)';
     const anim = studyFace.animate([
@@ -210,6 +211,8 @@ async function rateStudy(rating) {
 }
 
 function flashMatch(from, to) {
+  document.dispatchEvent(new CustomEvent('lumen-match', {detail:{from,to}}));
+  if (document.body.classList.contains('luminous')) return;
   if (motionReduced() || !Element.prototype.animate) return;
   const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
   const dx = b.left + b.width / 2 - a.left - a.width / 2;
