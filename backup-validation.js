@@ -8,8 +8,15 @@
     const entries=Object.entries(data.storage);if(!entries.length)fail();
     for(const [k,v] of entries){
       if(!k.startsWith('word-accumulator.')||k.startsWith('word-accumulator.backup-')||typeof v!=='string')fail();
-      if(!/\.(progress|study|learning|sentence-mistakes|sentence-options|decks)\./.test(k))continue;
+      if(!/\.(progress|study|learning|sentence-mistakes|sentence-options|decks|translation)\./.test(k))continue;
       const p=JSON.parse(v);if(!p||typeof p!=='object')fail();
+      if(k==='word-accumulator.translation.v1'&&(!Array.isArray(p)||!p.every(item=>
+        obj(item)&&typeof item.id==='string'&&['en','zh'].includes(item.source)&&
+        ['en','zh'].every(lang=>typeof item[lang]==='string'&&item[lang].length<=1500)&&
+        Boolean(item[item.source].trim())&&
+        (item.wrong===undefined||obj(item.wrong)&&Object.keys(item.wrong).every(lang=>
+          ['en','zh'].includes(lang)&&typeof item.wrong[lang]==='boolean'))
+      )||new Set(p.map(item=>item.id)).size!==p.length))fail();
       if(/\.decks\./.test(k)&&(!Array.isArray(p)||!p.every(d=>obj(d)&&typeof d.id==='string'&&typeof d.name==='string'&&Array.isArray(d.words)&&d.words.length&&d.words.every(w=>obj(w)&&typeof w.term==='string'&&typeof w.topic==='string'&&['meaning','pos','example'].every(f=>w[f]===undefined||typeof w[f]==='string')))))fail();
       if(/\.progress\./.test(k)&&(!obj(p)||!Object.values(p).every(obj)))fail();
       if(/\.study\./.test(k)&&(!obj(p)||['queue','finished','seen','customKeys'].some(f=>p[f]!==undefined&&!strings(p[f]))))fail();

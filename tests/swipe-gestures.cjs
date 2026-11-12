@@ -21,11 +21,11 @@ function harness() {
   const verdict = { textContent: '', dataset: {} };
   const ctx = vm.createContext({
     revealed: true, studyFace: face, studyWord: { term: 'alpha' }, studyBusy: false, flightMode: 'swipe',
-    gesture: null, gestureFrame: 0, swallowClick: false, settleAnimation: undefined,
+    directSwipe: true, cardMove: undefined, gesture: null, gestureFrame: 0, swallowClick: false, settleAnimation: undefined,
     swipeVerdict: verdict, reduceMotion: { matches: true }, motionReduced:()=>true,
     requestAnimationFrame() { return 1; },
     cancelAnimationFrame() {},
-    rateStudy(value) { ratings.push(value); }
+    rateStudy(value, revealFirst) { if (ctx.revealed || !revealFirst) ratings.push(value); }
   });
   vm.runInContext(code, ctx);
 
@@ -33,7 +33,7 @@ function harness() {
     pointerId: 1, pointerType: 'touch', isPrimary: true, button: 0,
     clientX: x, clientY: y, timeStamp: time, target
   });
-  return { send, ratings, face, flipButton };
+  return { send, ratings, face, flipButton, ctx };
 }
 
 // A touch starts on the word button. Its implicit capture is transferred
@@ -70,4 +70,11 @@ h.send('pointermove', 160, 51, 40);
 h.send('lostpointercapture', 160, 51, 45, h.face);
 h.send('pointerup', 170, 52, 50);
 assert.deepEqual(h.ratings, [], 'actual card capture loss cancels the gesture');
-console.log('PASS: touch capture transfer, short flick, snap-back, vertical scroll and actual capture loss');
+
+h = harness();
+h.ctx.revealed = false;
+h.send('pointerdown', 100, 50, 0);
+h.send('pointermove', 122, 52, 35);
+h.send('pointerup', 123, 52, 40);
+assert.deepEqual(h.ratings, [3], 'short swipe rates an unrevealed card without requiring an extra swipe');
+console.log('PASS: touch capture transfer, short flick, snap-back, vertical scroll, capture loss, and direct rating');

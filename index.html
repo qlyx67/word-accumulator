@@ -21,25 +21,27 @@
 <script defer src="extra-examples.js"></script>
 <script defer src="word-audit.js"></script>
 <script defer src="deck-photo.js?v=3"></script>
-<script defer src="custom-decks.js?v=5"></script>
+<script defer src="custom-decks.js?v=6"></script>
 <script defer src="accumulator.js?v=studio4"></script>
 <script defer src="sentence-quiz.js?v=decks1"></script>
 <link rel="stylesheet" href="star-study.css?v=panels1">
 <link rel="stylesheet" href="orbit.css?v=1">
 <script defer src="pronunciation.js?v=1"></script>
 <script defer src="pronunciation-audit.js?v=1"></script>
-<script defer src="studio-audio.js?v=decks1"></script>
+<script defer src="studio-audio.js?v=personal1"></script>
 <script defer src="learning-progress.js?v=1"></script>
-<script defer src="star-study.js?v=luminous1"></script>
+<script defer src="star-study.js?v=personal2"></script>
 <script defer src="filter-panels.js?v=1"></script>
 <link rel="stylesheet" href="spatial.css?v=studio4">
-<script defer src="backup-validation.js?v=1"></script>
-<script defer src="spatial.js?v=studio4"></script>
+<script defer src="backup-validation.js?v=2"></script>
+<script defer src="spatial.js?v=personal1"></script>
 <script defer src="practice-sessions.js?v=1"></script>
 <link rel="stylesheet" href="luminous.css?v=2">
-<script defer src="luminous.js?v=3"></script>
+<script defer src="luminous.js?v=4"></script>
+<link rel="stylesheet" href="personal-learning.css?v=2">
+<script defer src="personal-learning.js?v=2"></script>
 </head>
-<body><div class="studio-shell">
+<body class="personal-learning"><div class="studio-shell">
 <aside class="studio-rail" aria-label="导航">
   <div class="studio-brand"><span class="brand-mark" aria-hidden="true">◎</span><div><strong>单词累积器</strong><small>WORD ACCUMULATOR</small></div></div>
   <div class="rail-label">学习工作台</div>
@@ -53,6 +55,7 @@
   <div class="rail-credit">make by lyxx</div>
 </aside>
 <main>
+<p id="personal-notice" role="status"></p>
 <div class="studio-top"><span>学习工作台 <b>/</b> <strong id="studio-mode">背词卡</strong></span><button id="help-open" type="button">? 操作说明</button></div>
 <header class="acc-hero"><div class="orbital-art" aria-hidden="true"><i></i><i></i><i></i><span></span></div>
   <div class="hero-copy"><div class="eyebrow" id="studio-kicker">01 / FLASHCARDS</div><h1 id="studio-title">背词卡</h1><p id="studio-description">选一个词组，先回忆词义，再翻卡确认。</p></div>
@@ -87,6 +90,68 @@
 <div class="scope-list" id="scope-list"></div>
 <div class="actions"><button type="button" id="scope-clear">清除所选分组</button></div>
 </details>
+<nav class="learning-modes" aria-label="学习方式" hidden>
+  <button type="button" data-view="study">背词卡</button>
+  <button type="button" data-exercise="match">配对</button>
+  <button type="button" data-exercise="spell">拼写</button>
+  <button type="button" data-exercise="quiz">选词</button>
+  <button type="button" data-view="translate">翻译</button>
+</nav>
+<nav class="collection-tabs" aria-label="收藏内容" hidden>
+  <button type="button" data-view="collection">我的收藏</button>
+  <button type="button" data-view="browse">词库查词</button>
+</nav>
+<section id="personal-collection" hidden aria-label="我的收藏">
+  <div class="collection-head">
+    <div class="collection-types" role="group" aria-label="收藏类型">
+      <button type="button" data-collection="word" aria-pressed="true">单词</button>
+      <button type="button" data-collection="sentence" aria-pressed="false">句子</button>
+    </div>
+    <div class="collection-actions">
+      <button type="button" id="collection-study" disabled>背收藏单词</button>
+      <button type="button" id="collection-translate" hidden>练收藏句子</button>
+      <button type="button" id="collection-import">批量导入词库</button>
+    </div>
+  </div>
+  <p id="collection-status" role="status"></p>
+  <p id="collection-empty" class="muted"></p>
+  <ul id="collection-list"></ul>
+  <p id="collection-audio" class="tag" role="status"></p>
+</section>
+<section id="translation" class="card" hidden aria-label="双向翻译">
+  <div class="translation-head">
+    <div class="collection-types" role="group" aria-label="翻译方向">
+      <button type="button" data-direction="en" aria-pressed="true">英译中</button>
+      <button type="button" data-direction="zh" aria-pressed="false">汉译英</button>
+    </div>
+    <button type="button" id="translation-all" hidden>练全部句子</button>
+    <span id="translation-progress" class="tag"></span>
+  </div>
+  <p id="translation-empty" class="muted" hidden></p>
+  <button type="button" data-add id="translation-add" hidden>＋ 添加句子</button>
+  <div id="translation-question" hidden>
+    <p id="translation-prompt" tabindex="-1"></p>
+    <form id="translation-form">
+      <label for="translation-answer">你的译文</label>
+      <textarea id="translation-answer" rows="3" maxlength="1500" required></textarea>
+      <button type="submit" class="primary">提交并对照</button>
+    </form>
+    <div id="translation-result" hidden>
+      <h2>参考译文</h2>
+      <p id="translation-reference"></p>
+      <p id="translation-feedback" class="muted" role="status"></p>
+      <div class="actions translation-ratings">
+        <button type="button" data-translation-rating="again">需要重练</button>
+        <button type="button" data-translation-rating="close">意思相近</button>
+        <button type="button" class="primary" data-translation-rating="correct">正确</button>
+      </div>
+    </div>
+  </div>
+  <div id="translation-done" hidden>
+    <p id="translation-summary"></p>
+    <button type="button" id="translation-repeat">再练一轮</button>
+  </div>
+</section>
 <div class="exercise-layout browsing" id="exercise-layout"><div>
 <section id="study" class="star-study" aria-label="背词卡">
 <div class="card study-card">
@@ -155,8 +220,28 @@
 <section><h3>句子 <span class="tag" id="sentence-count"></span></h3>
 <p class="muted" id="sentence-empty">还没有句子错题。</p>
 <button type="button" id="sentence-review">重做句子错题</button>
-<ol class="wrong-list sentence-list" id="sentence-list"></ol></section></div>
+<ol class="wrong-list sentence-list" id="sentence-list"></ol><div id="translation-review"></div></section></div>
 </aside></div>
+<dialog id="quick-add" class="studio-dialog" aria-labelledby="quick-add-title">
+  <div class="dialog-head"><h2 id="quick-add-title">添加到收藏</h2><button type="button" class="space-icon" id="quick-close" aria-label="关闭">×</button></div>
+  <div class="dialog-body">
+    <form id="quick-form">
+      <label for="quick-text">输入单词或句子</label>
+      <textarea id="quick-text" rows="3" maxlength="20000" placeholder="例如 hesitate。多条内容每行一条。
+句子可用「原句 | 译文」一起添加。" required></textarea>
+      <div class="quick-controls">
+        <label for="quick-type">内容类型</label>
+        <select id="quick-type"><option value="auto">自动识别</option><option value="word">英文单词或短语</option><option value="en">英文句子</option><option value="zh">中文句子</option></select>
+        <button type="submit" class="primary" id="quick-preview">预览</button>
+      </div>
+    </form>
+    <p id="quick-status" class="muted" role="status"></p>
+    <div id="quick-review" hidden>
+      <div id="quick-rows"></div>
+      <button type="button" id="quick-save" class="primary">加入收藏</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="deck-dialog" class="deck-dialog" aria-labelledby="deck-title">
 <div class="panel-heading"><span class="eyebrow">PERSONAL VOCABULARY</span><h2 id="deck-title">导入我的词库</h2></div>
 <label class="deck-label" for="deck-name">词库名称</label><input id="deck-name" maxlength="60" placeholder="例如 管理学第 1–3 章">

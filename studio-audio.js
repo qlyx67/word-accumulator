@@ -1,6 +1,7 @@
 'use strict';
 
-const speechStatus = byId('speech-status');
+const cardSpeechStatus = byId('speech-status');
+let speechStatus = cardSpeechStatus;
 let audioContext;
 let clipSource;
 let dictionaryAudio;
@@ -62,9 +63,10 @@ function speakWithDevice(word, request) {
   synth.speak(utterance);
 }
 
-async function speakStudy(word) {
+async function speakStudy(word, status = cardSpeechStatus) {
   if (!word) return;
   stopSpeech();
+  speechStatus = status;
   const request = speechRequest;
   speechStatus.textContent = '正在载入发音…';
   if (typeof word.audio === 'string' && /^https:\/\//.test(word.audio)) {

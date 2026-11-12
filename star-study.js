@@ -2,6 +2,7 @@
 
 const studyKey = deckStorageKey('word-accumulator.study.v2');
 const studyFace = byId('study-face');
+const directSwipe = document.body.classList.contains('personal-learning');
 const studyDetails = byId('study-details');
 const ratingControls = [...document.querySelectorAll('[data-rating]')];
 const studyGroups = [...groupsByTopic.values()].flat();
@@ -116,7 +117,7 @@ function showStudyWord(animate = false) {
   byId('study-progress').max = studyGroup.words.length;
   byId('study-progress').value = studyFinished.size;
   byId('study-restart').hidden = Boolean(studyWord);
-  for (const control of ratingControls) control.disabled = true;
+  for (const control of ratingControls) control.disabled = !studyWord || !directSwipe;
   if (animate && !motionReduced() && studyFace.animate) {
     cardMove = byId('study-word').animate([
       { transform: 'translateY(7px)', opacity: .3 },
@@ -152,7 +153,7 @@ function flipStudy() {
   studyDetails.hidden = !revealed;
   byId('study-flip').setAttribute('aria-expanded', String(revealed));
   byId('study-hint').textContent = revealed ? '收起释义 · 空格' : '点击翻页 · 空格';
-  for (const control of ratingControls) control.disabled = !revealed;
+  for (const control of ratingControls) control.disabled = !revealed && !directSwipe;
   if (!revealed) return;
   byId('study-meaning').textContent = [studyWord.pos, studyWord.meaning].filter(Boolean).join(' · ') || '暂无释义';
   byId('study-example').textContent = studyWord.example || extraExamples[studyWord.term] || '';
@@ -171,9 +172,9 @@ function flipStudy() {
   }
 }
 
-async function rateStudy(rating) {
+async function rateStudy(rating, revealFirst = true) {
   if (!studyWord || studyBusy) return;
-  if (!revealed) { flipStudy(); return; }
+  if (!revealed && revealFirst) { flipStudy(); return; }
   studyBusy = true;
   const epoch = ++motionEpoch;
   const direction = rating === 1 ? -1 : 1;
@@ -183,7 +184,7 @@ async function rateStudy(rating) {
     const anim = studyFace.animate([
       { transform: initial, opacity: 1 },
       { transform: `translateX(${direction * Math.min(innerWidth, 600)}px) rotate(${direction * 16}deg)`, opacity: 0 }
-    ], { duration: 155, easing: 'cubic-bezier(.32,0,.65,.4)', fill: 'forwards' });
+    ], { duration: 130, easing: 'cubic-bezier(.32,0,.65,.4)', fill: 'forwards' });
     try { await anim.finished; } catch {}
     if (epoch !== motionEpoch) return;
     anim.cancel();
@@ -202,12 +203,12 @@ async function rateStudy(rating) {
   studyBusy = false;
   studyFace.dispatchEvent(new CustomEvent('study-card-rated', { bubbles: true, detail: direction }));
   if (!motionReduced() && studyFace.animate) {
-    const anim = studyFace.animate([{ transform: 'translateY(9px) scale(.985)', opacity: .65 }, { transform: 'translateY(0) scale(1)', opacity: 1 }], { duration: 165, easing: 'cubic-bezier(.2,.8,.2,1)' });
-    try { await anim.finished; } catch {}
+    cardMove = studyFace.animate([{ transform: 'translateY(9px) scale(.985)', opacity: .65 }, { transform: 'translateY(0) scale(1)', opacity: 1 }], { duration: 165, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    try { await cardMove.finished; } catch {}
   }
   if (epoch !== motionEpoch) return;
   studyBusy = false;
-  if (!studyWord) byId('study-match').focus({ preventScroll: true });
+  if (!studyWord) (byId('summary-spell') || byId('study-match')).focus({ preventScroll: true });
 }
 
 function flashMatch(from, to) {
@@ -265,11 +266,13 @@ function setFlight(value) {
   flightMode = value === 'classic' ? 'classic' : 'swipe';
   document.body.dataset.flight = flightMode;
   document.querySelectorAll('[data-flight]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.flight === flightMode)));
-  byId('gesture-guide').textContent = flightMode === 'swipe' ? '先轻点看释义，再左划复习 / 右划认识' : '先轻点看释义，再用下方按钮自评';
-  try { localStorage.setItem('word-accumulator.flight', flightMode); } catch {}
+  byId('gesture-guide').textContent = flightMode === 'swipe' ? '← 左划复习 · 点一下看释义 · 右划认识 →' : '先轻点看释义，再用下方按钮自评';
+  if (!directSwipe) {
+    try { localStorage.setItem('word-accumulator.flight', flightMode); } catch {}
+  }
 }
 document.querySelectorAll('[data-flight]').forEach(el => el.addEventListener('click', () => setFlight(el.dataset.flight)));
-setFlight(flightMode);
+setFlight(directSwipe ? 'swipe' : flightMode);
 // The implicit capture on a touched child can transfer to the card. Only
 // losing capture from the card itself cancels an in-progress swipe.
 function swipeTransform(dx) {
@@ -293,13 +296,17 @@ studyFace.addEventListener('pointerdown', event => {
   if (flightMode !== 'swipe' || !studyWord || studyBusy || !event.isPrimary ||
       event.button !== 0 || event.target.closest('#study-speak, a')) return;
   settleAnimation?.cancel();
+  cardMove?.cancel();
   swallowClick = false;
   gesture = {
     id: event.pointerId,
     x: event.clientX,
     y: event.clientY,
     start: event.timeStamp,
-    threshold: Math.max(34, Math.min(72, studyFace.clientWidth * .15)),
+    threshold: Math.max(27, Math.min(43, studyFace.clientWidth * .09)),
+    lastX: event.clientX,
+    lastTime: event.timeStamp,
+    velocity: 0,
     dx: 0,
     horizontal: false
   };
@@ -310,15 +317,19 @@ studyFace.addEventListener('pointermove', event => {
   const dx = event.clientX - gesture.x;
   const dy = event.clientY - gesture.y;
   if (!gesture.horizontal) {
-    if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+    if (Math.abs(dy) > 13 && Math.abs(dy) > Math.abs(dx) * 1.3) {
       gesture = null;
       return;
     }
-    if (Math.abs(dx) < 7 || Math.abs(dx) < Math.abs(dy) * 1.12) return;
+    if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(dy) * 1.05) return;
     gesture.horizontal = true;
     studyFace.setPointerCapture(event.pointerId);
     studyFace.classList.add('dragging');
   }
+  const dt = event.timeStamp - gesture.lastTime;
+  if (dt > 0) gesture.velocity = (event.clientX - gesture.lastX) / dt;
+  gesture.lastX = event.clientX;
+  gesture.lastTime = event.timeStamp;
   gesture.dx = dx;
   if (!gestureFrame) gestureFrame = requestAnimationFrame(renderSwipe);
 });
@@ -337,11 +348,12 @@ function endGesture(event, canceled = false) {
   const dx = canceled ? current.dx : event.clientX - current.x;
   const distance = Math.abs(dx);
   const elapsed = Math.max(1, event.timeStamp - current.start);
-  const flick = distance >= 23 && elapsed <= 180 && distance / elapsed >= .42;
+  const quick = elapsed <= 200 && distance / elapsed >= .35;
+  const release = event.timeStamp - current.lastTime < 85 && current.velocity * Math.sign(dx) >= .5;
+  const flick = distance >= 19 && (quick || release);
   if (!canceled && (distance >= current.threshold || flick)) {
     studyFace.style.transform = swipeTransform(dx);
-    if (!revealed) { studyFace.style.transform = ''; swipeVerdict.textContent = ''; flipStudy(); }
-    else rateStudy(dx > 0 ? 3 : 1);
+    rateStudy(dx > 0 ? 3 : 1, !directSwipe);
     return;
   }
   const transform = studyFace.style.transform || swipeTransform(current.dx);
@@ -392,7 +404,7 @@ help.addEventListener('click', event => {
 });
 byId('study-speak').addEventListener('click', () => speakStudy(studyWord));
 for (const control of ratingControls) {
-  control.addEventListener('click', () => rateStudy(Number(control.dataset.rating)));
+  control.addEventListener('click', () => rateStudy(Number(control.dataset.rating), !directSwipe));
 }
 document.addEventListener('keydown', event => {
   if ((document.body.dataset.view && document.body.dataset.view !== 'study') || mode !== 'study' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
@@ -402,7 +414,7 @@ document.addEventListener('keydown', event => {
     flipStudy();
   } else if (['1', '2', '3', 'ArrowLeft', 'ArrowRight'].includes(event.key) && studyWord) {
     event.preventDefault();
-    rateStudy(event.key === 'ArrowLeft' ? 1 : event.key === 'ArrowRight' ? 3 : Number(event.key));
+    rateStudy(event.key === 'ArrowLeft' ? 1 : event.key === 'ArrowRight' ? 3 : Number(event.key), !directSwipe);
   }
 });
 
@@ -411,6 +423,12 @@ if (Array.isArray(studySaved.queue) && Array.isArray(studySaved.seen) && Array.i
   studyQueue = [...new Set(studySaved.queue)].map(key => groupWords.get(key)).filter(Boolean);
   studySeen = new Set(studySaved.seen.filter(key => groupWords.has(key)));
   studyFinished = new Set(studySaved.finished.filter(key => groupWords.has(key)));
+  if (directSwipe && activeDeck?.id === 'personal-words' && !studySaved.customKeys) {
+    const queued = new Set(studyQueue.map(wordKey));
+    for (const [key, word] of groupWords) {
+      if (!queued.has(key) && !studySeen.has(key) && !studyFinished.has(key)) studyQueue.push(word);
+    }
+  }
   showStudyWord();
 } else startStudy();
 activateMode('study', false);

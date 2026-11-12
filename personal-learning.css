@@ -1,0 +1,286 @@
+/* The four destinations share one quiet control strip. */
+.personal-learning .mast-actions {
+  gap: clamp(4px, 1.5vw, 16px);
+}
+.personal-learning .mast-add {
+  padding: 8px 13px;
+  min-height: 42px;
+  border-color: #9de7db38;
+  border-radius: 30px;
+  background: #9de7db13;
+  color: #d9f4e9;
+  white-space: nowrap;
+}
+.personal-learning .deck-shortcut {
+  min-width: 0;
+  max-width: 170px;
+}
+.personal-learning #current-deck {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.personal-learning .space-dock {
+  min-width: 0;
+}
+.personal-learning .space-dock button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+.personal-learning .space-location {
+  margin-bottom: 16px;
+}
+.personal-learning:not([data-view="home"]) #view-kicker,
+.personal-learning #view-description:empty,
+.personal-learning .range-button,
+.personal-learning #practice-hub,
+.personal-learning .practice-tabs,
+.personal-learning .panel-heading .eyebrow,
+.personal-learning .memory-legend {
+  display: none;
+}
+.personal-learning .study-actions [hidden],
+.personal-learning .session-tools[hidden] {
+  display: none !important;
+}
+
+.learning-modes,
+.collection-tabs,
+.collection-types,
+.collection-actions,
+.collection-row-actions,
+.translation-head,
+.quick-controls,
+.quick-row-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.learning-modes,
+.collection-tabs {
+  border-bottom: 1px solid var(--border);
+  margin: 0 0 20px;
+  padding-bottom: 8px;
+}
+.personal-learning[data-view="study"] .learning-modes {
+  max-width: 730px;
+  margin-inline: auto;
+}
+.personal-learning :is(.learning-modes, .collection-tabs, .collection-types) button {
+  min-height: 42px;
+  padding: 8px 13px;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 22px;
+  color: var(--muted);
+}
+.personal-learning :is(.learning-modes, .collection-tabs, .collection-types) button[aria-pressed="true"] {
+  background: #a2e8d318;
+  border-color: #a2e8d328;
+  color: var(--ink);
+}
+.personal-learning .quick-grid {
+  grid-template-columns: 1fr;
+}
+.personal-learning .quick-grid:has(#resume-study[hidden]) {
+  display: none;
+}
+.personal-learning .review-due {
+  margin: 0 0 18px;
+}
+.personal-learning .review-due > button {
+  width: 100%;
+  min-height: 60px;
+}
+.personal-learning #study-flip,
+.personal-learning #study-face {
+  touch-action: pan-y pinch-zoom;
+}
+.personal-learning.luminous .gesture-guide:not([hidden]) {
+  display: block;
+  color: #a3c6ba;
+  margin: 13px 0 9px;
+}
+.personal-learning.luminous .study-ratings {
+  margin-top: 9px;
+}
+.personal-learning #study-face.dragging {
+  transition: none;
+}
+
+.collection-head {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.personal-learning :is(.collection-actions, .collection-row-actions) button {
+  min-height: 42px;
+  font-size: 13px;
+}
+.personal-learning #collection-list,
+.personal-learning #translation-review ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.personal-learning #collection-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 2px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.personal-learning #collection-list p {
+  margin: 5px 0;
+}
+.personal-learning #collection-list small,
+.personal-learning #collection-list a {
+  display: block;
+  color: var(--muted);
+}
+.personal-learning #collection-status:empty,
+.personal-learning #quick-status:empty {
+  display: none;
+}
+.personal-learning #personal-notice {
+  position: fixed;
+  z-index: 50;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid #a2e8d339;
+  border-radius: 20px;
+  background: #15363d;
+  color: var(--ink);
+  pointer-events: none;
+}
+.personal-learning #personal-notice:empty {
+  display: none;
+}
+.personal-learning #translation {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 32px);
+}
+.translation-head {
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+#translation-progress {
+  margin-left: auto;
+}
+#translation-prompt,
+#translation-reference {
+  font-size: clamp(17px, 2.6vw, 24px);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+#translation-form label,
+#quick-form > label,
+.quick-row label {
+  display: block;
+  margin: 0 0 6px;
+}
+.personal-learning :is(#translation, #quick-add) :is(textarea, input, select) {
+  font-size: 16px;
+}
+.personal-learning :is(#translation, #quick-add) textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  padding: 11px 13px;
+  margin: 5px 0 12px;
+  background: #0b2028;
+  color: var(--ink);
+  border: 1px solid #a2e8d333;
+  border-radius: 10px;
+  line-height: 1.55;
+}
+#translation-result,
+#translation-review:not(:empty) {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+  margin-top: 18px;
+}
+#translation-result h2 {
+  font-size: 16px;
+}
+#translation-review li {
+  margin: 7px 0;
+  overflow-wrap: anywhere;
+}
+#translation-review > div + div {
+  margin-top: 15px;
+}
+.quick-controls {
+  gap: 8px 10px;
+}
+.quick-controls select {
+  flex: 1;
+}
+.quick-row {
+  padding: 15px 0 10px;
+  border-block-start: 1px solid var(--border);
+}
+.quick-row input {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+}
+.quick-word-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 12px;
+}
+.quick-row-tools {
+  justify-content: flex-end;
+}
+#quick-save {
+  margin-top: 10px;
+}
+.personal-learning #daily-line-en {
+  color: #aed4c9;
+  font-size: 13px;
+}
+@media (max-width: 560px) {
+  .personal-learning .mast-add {
+    min-width: 44px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .personal-learning .deck-shortcut {
+    max-width: 104px;
+  }
+  .personal-learning .space-brand {
+    white-space: nowrap;
+  }
+  .personal-learning .space-dock button {
+    min-width: 0;
+    padding-inline: 4px;
+  }
+  .personal-learning .learning-modes {
+    gap: 3px;
+  }
+  .personal-learning .learning-modes button {
+    flex: 1 0 auto;
+    font-size: 12px;
+    padding-inline: 8px;
+  }
+  .personal-learning #collection-list li {
+    gap: 10px;
+  }
+  .personal-learning .collection-row-actions {
+    justify-content: flex-end;
+  }
+  .personal-learning #personal-notice {
+    top: 74px;
+  }
+}

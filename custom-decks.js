@@ -131,10 +131,16 @@ async function lookupDeckWord(row, online, signal) {
   const local = originalWords.get(row.term.toLowerCase());
   if (local) {
     row.pos ||= local.pos;
-    if (!row.meaning || row.meaning === local.meaning) row.example ||= local.example || extraExamples[local.term] || '';
+    if (!row.example && (!row.meaning || row.meaning === local.meaning)) {
+      row.example = local.example || extraExamples[local.term] || '';
+      if (local.exampleId && row.example === local.example) {
+        row.exampleId = local.exampleId;
+        row.exampleAuthor = local.exampleAuthor;
+      }
+    }
     row.meaning ||= local.meaning;
   }
-  if (!online || (row.pos && row.meaning && row.example && local)) return;
+  if (!online || signal.aborted || (row.pos && row.meaning && row.example && local)) return;
   const request = new AbortController();
   const abort = () => request.abort();
   signal.addEventListener('abort', abort, { once: true });
