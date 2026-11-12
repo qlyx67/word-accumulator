@@ -1,4 +1,4 @@
-/* On-site English–Chinese definitions, with optional online examples and audio. */
+/* On-site English–Chinese definitions, with optional online examples. */
 const WordDictionary = (() => {
   const shards = new Map();
   const cache = new Map();
@@ -28,12 +28,12 @@ const WordDictionary = (() => {
     counterintuitive: ['ˌkaʊntərɪnˈtjuːɪtɪv', [['adj.', ['反直觉的；与直觉相悖的']]]]
   };
 
-  async function request(url, signal) {
+  async function request(url, signal, timeout = 2200) {
     if (signal?.aborted) return null;
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(abort, 4000);
+    const timer = setTimeout(abort, timeout);
     try {
       const response = await fetch(url, { signal: controller.signal, referrerPolicy: 'no-referrer' });
       return response.ok ? await response.json() : null;
@@ -49,7 +49,7 @@ const WordDictionary = (() => {
     const first = term[0];
     const shard = first <= 'f' ? 'a-f' : first <= 'l' ? 'g-l' : first <= 'r' ? 'm-r' : 's-z';
     if (!shards.has(shard)) {
-      shards.set(shard, request('dictionary/' + shard + '.json?v=1').then(data => {
+      shards.set(shard, request('dictionary/' + shard + '.json?v=1', undefined, 4500).then(data => {
         if (!data) shards.delete(shard);
         return data;
       }));
@@ -85,15 +85,13 @@ const WordDictionary = (() => {
     const definition = first?.definitions?.[0]?.definition;
     const phonetics = data.flatMap(entry => entry.phonetics || []);
     const sound = accent => phonetics.find(item => item.audio?.split(/[?#]/)[0].endsWith('-' + accent + '.mp3'));
-    const url = item => item?.audio?.startsWith('//') ? 'https:' + item.audio : item?.audio;
     const us = sound('us');
     const uk = sound('uk');
     return {
       definition, partOfSpeech: first?.partOfSpeech,
       example: meanings.flatMap(item => item.definitions || []).find(item => item.example)?.example,
       phonetic: data.find(entry => entry.phonetic)?.phonetic || phonetics.find(item => item.text)?.text,
-      phoneticUs: us?.text, phoneticUk: uk?.text, audioUs: url(us), audioUk: url(uk),
-      audio: url(us || uk || phonetics.find(item => item.audio))
+      phoneticUs: us?.text, phoneticUk: uk?.text
     };
   }
 
@@ -128,27 +126,30 @@ const WordDictionary = (() => {
     return typeof translation === 'string' && chinese.test(translation) ? translation : '';
   }
 
-  async function lookup(term, signal, onLocal = () => {}) {
+  async function lookup(term, signal, onUpdate = () => {}) {
     const key = normalize(term);
     if (!termPattern.test(key) || key.length > 90 || signal?.aborted) return null;
     if (cache.has(key)) return cache.get(key);
     const entry = await getLocal(key);
     if (signal?.aborted) return null;
-    onLocal(entry);
-    const [english, example] = await Promise.all([
-      englishEntry(key, signal),
-      entry.exampleZh ? {} : bilingualExample(key, signal)
-    ]);
-    if (signal?.aborted) return null;
-    Object.assign(entry, {
-      phonetic: entry.phonetic || english.phonetic,
-      phoneticUs: english.phoneticUs, phoneticUk: english.phoneticUk,
-      audio: english.audio, audioUs: english.audioUs, audioUk: english.audioUk,
-      pos: entry.pos || english.partOfSpeech || '',
-      englishMeaning: english.definition || entry.englishMeaning
+    onUpdate(entry);
+    const englishTask = (!entry.meaning || !entry.example) && englishEntry(key, signal).then(english => {
+      if (signal?.aborted || !english.definition) return;
+      entry.phonetic ||= english.phonetic;
+      entry.phoneticUs = english.phoneticUs;
+      entry.phoneticUk = english.phoneticUk;
+      entry.pos ||= english.partOfSpeech || '';
+      entry.englishMeaning = english.definition;
+      entry.example ||= english.example || '';
+      onUpdate(entry);
     });
-    Object.assign(entry, example);
-    entry.example ||= english.example || '';
+    const exampleTask = !entry.exampleZh && bilingualExample(key, signal).then(example => {
+      if (signal?.aborted || !example.exampleZh) return;
+      Object.assign(entry, example);
+      onUpdate(entry);
+    });
+    await Promise.all([englishTask, exampleTask]);
+    if (signal?.aborted) return null;
     const [translatedMeaning, translatedExample] = await Promise.all([
       !entry.meaning && (entry.englishMeaning || entry.exampleZh) ? translateToChinese(entry.englishMeaning || key, signal) : '',
       !entry.exampleZh && entry.example ? translateToChinese(entry.example, signal) : ''
@@ -162,7 +163,7 @@ const WordDictionary = (() => {
       entry.exampleZh = translatedExample;
       entry.exampleMachineTranslated = true;
     }
-    if (entry.meaning && entry.exampleZh && (entry.audio || typeof pronunciation === 'object' && Object.hasOwn(pronunciation, key))) {
+    if (entry.meaning && entry.exampleZh) {
       if (cache.size >= 100) cache.delete(cache.keys().next().value);
       cache.set(key, entry);
     }
@@ -171,7 +172,7 @@ const WordDictionary = (() => {
 
   function fill(row, entry) {
     if (!entry) return;
-    for (const key of ['pos', 'meaning', 'phonetic', 'phoneticUs', 'phoneticUk', 'audio', 'audioUs', 'audioUk']) {
+    for (const key of ['pos', 'meaning', 'phonetic', 'phoneticUs', 'phoneticUk']) {
       if (!row[key] && entry[key]) row[key] = entry[key];
     }
     if (!row.example && entry.example) {

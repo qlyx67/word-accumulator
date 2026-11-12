@@ -16,6 +16,8 @@
   const dictionaryInput = byId('dictionary-input');
   const dictionaryStatus = byId('dictionary-status');
   const dictionaryResult = byId('dictionary-result');
+  const dictionaryPronunciation = byId('dictionary-pronunciation');
+  const quickPronunciation = byId('quick-pronunciation');
   const answer = byId('translation-answer');
   const ratings = [...document.querySelectorAll('[data-translation-rating]')];
   const normalize = text => text.normalize('NFKC').trim().replace(/[‘’]/g, "'")
@@ -123,6 +125,9 @@
     resetDrafts();
     quickText.value = '';
     quickType.value = type;
+    quickPronunciation.hidden = true;
+    stopSpeech();
+    prepareStudySpeech();
     byId('quick-add-title').textContent = '添加单词或句子';
     byId('quick-form').hidden = false;
     quickSave.textContent = '加入学习';
@@ -195,7 +200,9 @@
         const status = document.createElement('span');
         status.className = 'tag';
         status.setAttribute('role', 'status');
-        tools.prepend(button('试听发音', () => speakStudy(row, status)), status);
+        if (drafts.length !== 1 || quickPronunciation.hidden || edit) {
+          tools.prepend(button('试听发音', () => speakStudy(row, status)), status);
+        }
         addField(entry, row, 'term', '单词或短语', false, Boolean(edit));
         const fields = document.createElement('div');
         fields.className = 'quick-word-fields';
@@ -253,7 +260,7 @@
     lookup = task;
     quickPreview.disabled = true;
     const wordsToLookup = rows.filter(row => row.kind === 'word');
-    if (wordsToLookup.length) quickStatus.textContent = '正在查找单词的释义、例句和发音…';
+    if (wordsToLookup.length) quickStatus.textContent = '正在查找单词的释义和例句…';
     let next = 0;
     await Promise.all(Array.from({ length: Math.min(5, wordsToLookup.length) }, async () => {
       while (next < wordsToLookup.length && !task.signal.aborted) {
@@ -296,20 +303,13 @@
     heading.textContent = entry.term;
     const pronunciationBar = document.createElement('div');
     pronunciationBar.className = 'dictionary-audio';
-    const audioStatus = document.createElement('span');
-    audioStatus.setAttribute('role', 'status');
-    for (const [label, locale, ipa] of [['英音', 'en-GB', entry.phoneticUk], ['美音', 'en-US', entry.phoneticUs]]) {
-      const control = button(label + (ipa ? ' ' + ipa : ''), () => speakStudy(entry, audioStatus, locale));
-      control.setAttribute('aria-label', '播放' + label);
-      pronunciationBar.append(control);
-    }
-    if (entry.phonetic && (!entry.phoneticUk || !entry.phoneticUs)) {
+    for (const [label, value] of [['英', entry.phoneticUk], ['美', entry.phoneticUs], ['', entry.phonetic]]) {
+      if (!value || !label && (entry.phoneticUk && entry.phoneticUs)) continue;
       const ipa = document.createElement('span');
       ipa.lang = 'en-fonipa';
-      ipa.textContent = '/' + entry.phonetic.replace(/^\/|\/$/g, '') + '/';
-      pronunciationBar.prepend(ipa);
+      ipa.textContent = (label ? label + ' ' : '') + '/' + value.replace(/^\/|\/$/g, '') + '/';
+      pronunciationBar.append(ipa);
     }
-    pronunciationBar.append(audioStatus);
     dictionaryResult.append(heading, pronunciationBar);
 
     const meanings = document.createElement('dl');
@@ -371,7 +371,7 @@
       }
     });
     add.className = 'primary dictionary-add';
-    add.disabled = saved || pending && !(entry.meaning && entry.exampleZh);
+    add.disabled = saved || pending && !entry.meaning;
     dictionaryResult.append(add);
   }
 
@@ -384,6 +384,7 @@
   async function searchDictionary() {
     cancelDictionary();
     const term = WordDictionary.normalize(dictionaryInput.value);
+    dictionaryPronunciation.hidden = !termPattern.test(term);
     dictionaryEntry = undefined;
     dictionaryResult.hidden = true;
     if (!termPattern.test(term)) {
@@ -393,9 +394,9 @@
     const task = new AbortController();
     dictionaryTask = task;
     dictionaryStatus.textContent = '正在查词…';
-    const entry = await WordDictionary.lookup(term, task.signal, local => {
-      renderDictionary(local, true);
-      if (!dictionaryResult.hidden) dictionaryStatus.textContent = local.exampleZh ? '' : '正在补充例句和发音…';
+    const entry = await WordDictionary.lookup(term, task.signal, partial => {
+      renderDictionary(partial, true);
+      if (!dictionaryResult.hidden) dictionaryStatus.textContent = partial.exampleZh ? '' : '正在补充例句…';
     });
     if (task.signal.aborted) return;
     dictionaryTask = undefined;
@@ -414,10 +415,13 @@
 
   function queueDictionarySearch() {
     cancelDictionary();
+    stopSpeech();
     dictionaryEntry = undefined;
     dictionaryResult.hidden = true;
     dictionaryStatus.textContent = '';
-    if (dictionaryInput.value.trim()) dictionaryTimer = setTimeout(searchDictionary, 500);
+    const term = WordDictionary.normalize(dictionaryInput.value);
+    dictionaryPronunciation.hidden = !termPattern.test(term);
+    if (term) dictionaryTimer = setTimeout(searchDictionary, 300);
   }
 
   function saveDrafts() {
@@ -655,12 +659,24 @@
 
   function queueQuickPreview() {
     resetDrafts();
-    const text = quickText.value.trim();
-    if (/\r|\n/.test(text)) return;
-    const row = parseQuickLine(text, quickType.value);
-    if (row?.kind === 'word' && row.term.length >= 2) quickTimer = setTimeout(previewQuick, 500);
+    stopSpeech();
+    const word = quickPronunciationWord();
+    quickPronunciation.hidden = !word;
+    if (word?.term.length >= 2) quickTimer = setTimeout(previewQuick, 300);
   }
 
+  function quickPronunciationWord() {
+    const text = quickText.value.trim();
+    const row = !/\r|\n/.test(text) && parseQuickLine(text, quickType.value);
+    return row?.kind === 'word' ? row : null;
+  }
+
+  byId('quick-speak').onclick = () => speakStudy(quickPronunciationWord(), byId('quick-audio-status'));
+  dictionaryPronunciation.addEventListener('click', event => {
+    const locale = event.target.closest('[data-pronunciation]')?.dataset.pronunciation;
+    const term = WordDictionary.normalize(dictionaryInput.value);
+    if (locale && termPattern.test(term)) speakStudy({ term }, byId('dictionary-audio-status'), locale);
+  });
   quickText.addEventListener('input', queueQuickPreview);
   quickType.addEventListener('change', queueQuickPreview);
   dictionaryInput.addEventListener('input', event => {
@@ -706,8 +722,11 @@
   document.addEventListener('studio-view-changed', () => {
     const view = document.body.dataset.view;
     if (view !== 'lookup') cancelDictionary();
-    else if (dictionaryEntry) renderDictionary(dictionaryEntry);
-    else if (dictionaryInput.value.trim()) searchDictionary();
+    else {
+      prepareStudySpeech();
+      if (dictionaryEntry) renderDictionary(dictionaryEntry);
+      else if (dictionaryInput.value.trim()) searchDictionary();
+    }
     if (view === 'collection') renderCollection();
     if (view === 'translate') showTranslation();
     if (view === 'mistakes') renderTranslationReview();

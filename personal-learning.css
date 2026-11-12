@@ -333,6 +333,12 @@
   gap: 8px;
   color: #b5d6d0;
 }
+.pronunciation-controls {
+  margin-top: 12px;
+}
+.pronunciation-controls[hidden] {
+  display: none;
+}
 .dictionary-meanings {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

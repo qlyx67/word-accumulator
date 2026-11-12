@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="orbit.css?v=1">
 <script defer src="pronunciation.js?v=1"></script>
 <script defer src="pronunciation-audit.js?v=1"></script>
-<script defer src="studio-audio.js?v=dictionary2"></script>
+<script defer src="studio-audio.js?v=localvoice1"></script>
 <script defer src="learning-progress.js?v=1"></script>
 <script defer src="star-study.js?v=dictionary1"></script>
 <script defer src="filter-panels.js?v=dictionary1"></script>
@@ -38,9 +38,9 @@
 <script defer src="practice-sessions.js?v=1"></script>
 <link rel="stylesheet" href="luminous.css?v=2">
 <script defer src="luminous.js?v=4"></script>
-<link rel="stylesheet" href="personal-learning.css?v=3">
-<script defer src="word-dictionary.js?v=1"></script>
-<script defer src="personal-learning.js?v=4"></script>
+<link rel="stylesheet" href="personal-learning.css?v=4">
+<script defer src="word-dictionary.js?v=2"></script>
+<script defer src="personal-learning.js?v=5"></script>
 </head>
 <body class="personal-learning"><div class="studio-shell">
 <aside class="studio-rail" aria-label="导航">
@@ -108,6 +108,11 @@
     <input id="dictionary-input" type="search" lang="en" aria-label="英文单词或短语" placeholder="输入英文单词或短语" maxlength="90" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" required>
     <button type="submit" class="primary">查词</button>
   </form>
+  <div id="dictionary-pronunciation" class="dictionary-audio pronunciation-controls" hidden>
+    <button type="button" data-pronunciation="en-GB" aria-label="播放英音">英音</button>
+    <button type="button" data-pronunciation="en-US" aria-label="播放美音">美音</button>
+    <span id="dictionary-audio-status" role="status"></span>
+  </div>
   <div id="dictionary-suggestions" aria-label="试查单词">
     <span>试一试</span>
     <button type="button" lang="en" data-lookup="plot">plot</button>
@@ -251,6 +256,10 @@
         <button type="submit" class="primary" id="quick-preview">查看结果</button>
       </div>
     </form>
+    <div id="quick-pronunciation" class="dictionary-audio pronunciation-controls" hidden>
+      <button type="button" id="quick-speak">试听发音</button>
+      <span id="quick-audio-status" role="status"></span>
+    </div>
     <p id="quick-status" class="muted" role="status"></p>
     <div id="quick-review" hidden>
       <div id="quick-rows"></div>
