@@ -732,6 +732,11 @@
     if (view === 'mistakes') renderTranslationReview();
   });
 
+  document.addEventListener('vocabulary-library-changed', () => {
+    roundDirty = true;
+    renderCollection();
+    renderTranslationReview();
+  });
   window.addEventListener('storage', event => {
     if (event.key === deckListKey) {
       renderCollection();

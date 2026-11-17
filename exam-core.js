@@ -27,7 +27,7 @@
     if (bilingual) return [tidy(bilingual[1]), tidy(bilingual[2])];
     return line.split(/\s{2,}/).map(tidy);
   }
-  function parse(text, sourceId) {
+  function parse(text, sourceId, limit = 300) {
     const rows = [], skipped = [];
     let columns, latest;
     const lines = String(text).split(/\r?\n/);
@@ -65,7 +65,7 @@
       item.kind = item.kind === 'sentence' || item.term.split(/\s+/).length > 5 || /[.!?]$/.test(item.term) || /^(?:I|You|We|They|He|She|It|There|This|That)\s+\S+\s+\S+/i.test(item.term) ? 'sentence' : 'word';
       for (const k of ['meaning', 'example', 'exampleZh']) item[k] = (k === 'example' ? tidy(item[k]) : tidyChinese(item[k])).slice(0, 1500);
       rows.push(item); latest = item;
-      if (rows.length >= 300) { if (index < lines.length - 1) skipped.push({ line: index + 2, text: '单次最多 300 条，请拆分剩余内容。' }); break; }
+      if (rows.length >= limit) { if (index < lines.length - 1) skipped.push({ line: index + 2, text: '单次最多 ' + limit + ' 条，请拆分剩余内容。' }); break; }
     }
     return { rows: dedupe(rows), skipped };
   }

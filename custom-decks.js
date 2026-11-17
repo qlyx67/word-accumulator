@@ -4,6 +4,7 @@ const deckListKey = 'word-accumulator.decks.v1';
 const deckSelectionKey = 'word-accumulator.active-deck.v1';
 const deckDialog = document.getElementById('deck-dialog');
 const deckField = id => document.getElementById('deck-' + id);
+const builtInWords = words.slice();
 const originalWords = new Map();
 for (const word of words) if (!originalWords.has(word.term.toLowerCase())) originalWords.set(word.term.toLowerCase(), word);
 let decks = [];
@@ -292,7 +293,13 @@ function invalidateDraft() {
   deckField('review').hidden = true;
 }
 
-deckField('import').addEventListener('click', () => deckDialog.showModal());
+deckField('import').addEventListener('click', () => {
+  if (document.body.classList.contains('personal-learning')) {
+    document.dispatchEvent(new CustomEvent('studio-navigate', { detail: 'materials' }));
+  } else {
+    deckDialog.showModal();
+  }
+});
 deckField('close').addEventListener('click', () => deckDialog.close());
 deckDialog.addEventListener('close', () => {
   fileTask++;

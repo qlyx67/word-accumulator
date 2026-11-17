@@ -1,11 +1,49 @@
-/* Give personal-material practice one clear entry after the daily learning area. */
-(function(){
- const home=document.getElementById('learning-home');
- if(!home)return;
- const card=document.createElement('a');card.href='exam.html';card.className='exam-entry';
- card.innerHTML='<span class="exam-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h4m2 4 2 2 3-4"/></svg></span><span class="exam-entry-copy"><small>把课堂资料用起来</small><strong>用自己的词表，练填空、听写和翻译。</strong><span>上传截图或粘贴文字，核对后就能开始。</span></span><span class="exam-entry-cta">试一道示例题 <b>↗</b></span>';
- const grid=home.querySelector('.home-grid');if(grid)grid.after(card);else home.append(card);
- const style=document.createElement('style');
- style.textContent='.exam-entry{display:flex;align-items:center;gap:20px;padding:23px 25px;margin:24px 0;border:1px solid #b6dfd432;background:linear-gradient(110deg,#163d3a85,#102a33a0);border-radius:20px;text-decoration:none;color:#e4f0e9;transition:background .2s,transform .2s,border-color .2s}.exam-entry:hover{background:#1b3e40;border-color:#b8eed15c;transform:translateY(-2px)}.exam-entry:focus-visible{outline:2px solid #b8f4da;outline-offset:4px}.exam-entry-icon{display:grid;place-items:center;width:52px;height:58px;flex:none;background:#b8ead00a;border-radius:13px;color:#b8e6d5}.exam-entry-icon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.exam-entry-copy{flex:1;min-width:0}.exam-entry small{display:block;font-size:10px;color:#b1d8cb;letter-spacing:.8px}.exam-entry strong{display:block;font-size:19px;font-weight:500;margin:5px 0;line-height:1.6}.exam-entry-copy>span{font-size:11px;color:#9ebbb7}.exam-entry-cta{font-size:11px;white-space:nowrap;color:#aed7ca}.exam-entry-cta b{font-size:23px;font-weight:400;margin-left:18px}@media(max-width:640px){.exam-entry{padding:19px 17px;gap:14px;flex-wrap:wrap;margin:20px 0}.exam-entry strong{font-size:15px}.exam-entry-copy>span{font-size:10px}.exam-entry-icon{width:39px;height:45px}.exam-entry-icon svg{width:23px}.exam-entry-cta{margin-left:53px;display:flex;align-items:center;justify-content:space-between;flex:1;font-size:11px}.exam-entry-cta b{font-size:20px}}@media(prefers-reduced-motion:reduce){.exam-entry{transition:none}.exam-entry:hover{transform:none}}';
- document.head.append(style);document.dispatchEvent(new Event('studio-layout-changed'));
+/* Open both tools inside the main app, under its existing navigation. */
+(() => {
+  const host = document.getElementById('vocabulary-workspace');
+  const home = document.getElementById('learning-home');
+  if (!host || !home) return;
+
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'pack-launch';
+  card.dataset.view = 'packs';
+  card.innerHTML = '<span><strong>学习包</strong><small>从词库选组，练填空、听写和翻译。</small></span><span aria-hidden="true">↗</span>';
+  home.querySelector('.home-grid')?.after(card);
+  document.dispatchEvent(new Event('studio-layout-changed'));
+
+  let controller;
+  function prepare() {
+    if (controller) return controller;
+    const root = host.shadowRoot || host.attachShadow({ mode: 'open' });
+    const template = document.getElementById('vocabulary-template');
+    const links = ['exam.css?v=welcome3', 'exam-workspace.css?v=2.2.0'].map(href => {
+      const style = document.createElement('link');
+      style.rel = 'stylesheet';
+      style.href = href;
+      return style;
+    });
+    root.replaceChildren(...links, template.content.cloneNode(true));
+    controller = StudyPackWorkspace(root);
+    return controller;
+  }
+
+  async function update() {
+    const view = document.body.dataset.view;
+    if (view !== 'materials' && view !== 'packs') {
+      controller?.leave();
+      return;
+    }
+    try {
+      await prepare().open(view);
+    } catch (error) {
+      console.error(error);
+      const retry = document.createElement('button');
+      retry.textContent = '重新加载';
+      retry.onclick = update;
+      (host.shadowRoot || host).replaceChildren(document.createTextNode('学习区暂时无法打开。 '), retry);
+    }
+  }
+  document.addEventListener('studio-view-changed', update);
+  update();
 })();

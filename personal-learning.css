@@ -440,3 +440,26 @@ body.spatial.personal-learning {
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif;
 }
 
+
+/* Learning packs share the app's normal navigation and page width. */
+.luminous .pack-launch {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 14px;
+  text-align: left;
+  margin: 10px 0 24px;
+  padding: 16px 20px;
+  border: 1px solid #b6e4dc28;
+  border-radius: 15px;
+  background: #10292f;
+  color: #e2f6ed;
+}
+.luminous .pack-launch:hover { background: #183840; }
+.pack-launch small { display: block; color: #a0bcb8; margin-top: 4px; }
+.personal-learning[data-view="packs"] .learning-modes { margin-bottom: 24px; }
+@media (max-width: 560px) {
+  .personal-learning .learning-modes { flex-wrap: wrap; }
+  .luminous .pack-launch { padding: 13px 15px; margin: 7px 0 18px; }
+}

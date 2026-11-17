@@ -8,10 +8,10 @@
   const main=$('main'), originalNav=$('.studio-rail nav');
   const personal=document.body.classList.contains('personal-learning');
   const exercises=['match','spell','quiz'];
-  const learningViews=['study','practice','translate'];
+  const learningViews=['study','practice','translate','packs'];
   document.body.classList.add('spatial');
   const backdrop=document.createElement('div');backdrop.className='space-scene';backdrop.setAttribute('aria-hidden','true');document.body.prepend(backdrop);
-  const header=document.createElement('header');header.className='space-mast';header.innerHTML=`<button class="space-brand" data-view="home"><span class="studio-monogram">a<span>↗</span></span><span>单词累积器<small>WORD ACCUMULATOR</small></span></button><div class="mast-actions">${personal?'<button type="button" class="mast-add" data-add>＋ <span>添加</span></button>':''}<button class="deck-shortcut" data-open="library" aria-label="学习范围与词库"><span class="status-dot"></span><span id="current-deck"></span><span>⌄</span></button><button class="space-icon" data-open="settings" aria-label="设置与备份">${icon('settings')}</button></div>`;document.body.prepend(header);
+  const header=document.createElement('header');header.className='space-mast';header.innerHTML=`<button class="space-brand" data-view="home"><span class="studio-monogram">a<span>↗</span></span><span>单词累积器<small>WORD ACCUMULATOR</small></span></button><div class="mast-actions">${personal?'<button type="button" class="mast-add" data-view="materials">＋ <span>添加</span></button>':''}<button class="deck-shortcut" data-open="library" aria-label="学习范围与词库"><span class="status-dot"></span><span id="current-deck"></span><span>⌄</span></button><button class="space-icon" data-open="settings" aria-label="设置与备份">${icon('settings')}</button></div>`;document.body.prepend(header);
   const nav=document.createElement('nav');nav.className='space-dock';nav.setAttribute('aria-label','主导航');nav.innerHTML=(personal?[['home','今日'],['study','学习'],['lookup','查词'],['mistakes','复习']]:[['home','今日'],['study','背词'],['practice','练习'],['browse','查词'],['mistakes','错题']]).map(([id,title])=>`<button data-view="${id}" aria-label="${title}">${icon(id==='lookup'?'browse':id)}<span>${title}</span><i></i></button>`).join('')+'<span class="nav-credit">make by lyxx</span>';document.body.append(nav);
   $('.studio-rail').hidden=true;$('.studio-top').hidden=true;$('.acc-hero').hidden=true;
   const location=document.createElement('div');location.className='space-location';location.innerHTML='<div><span class="eyebrow" id="view-kicker">YOUR LEARNING SPACE</span><h1 id="view-title">每天一点，积累更多。</h1><p id="view-description"></p></div><button class="range-button" data-open="library">学习范围 <span>↗</span></button>';main.prepend(location);
@@ -36,6 +36,8 @@
   const focus=$('#study-focus');$('.study-actions').append(focus);focus.textContent='专注';$('.flight-toolbar').hidden=true;
   let activeDialog=null,view='home',lastMode=mode,lastPractice='match',pageAnimation;
   function makeDialog(id,title){const d=document.createElement('dialog');d.id='studio-'+id;d.className='studio-dialog';d.setAttribute('aria-labelledby',d.id+'-title');d.innerHTML=`<div class="dialog-head"><h2 id="${d.id}-title">${title}</h2><button class="space-icon" aria-label="关闭${title}">${icon('close')}</button></div><div class="dialog-body"></div>`;document.body.append(d);d.querySelector('button').onclick=()=>d.close();d.addEventListener('close',()=>{if(activeDialog===d)activeDialog=null;});d.addEventListener('click',e=>{const r=d.getBoundingClientRect();if(e.target===d&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom))d.close();});return d;}
+  const workspace = $('#vocabulary-workspace');
+  if (workspace) $('.learning-modes').after(workspace);
   const library=makeDialog('library','词库与学习范围'),settings=makeDialog('settings','设置与备份');
   library.querySelector('.dialog-body').append($('.study-controls'),$('#practice-scope'),$('.map-panel'));
   const saveNote=$('#save-note');const settingsBody=settings.querySelector('.dialog-body');
@@ -50,7 +52,7 @@
   }
   const extra=document.createElement('p');extra.textContent='今日目标按不同词条计数，重复刷同一个词不会增加词数。复习安排从本次升级后开始记录：不会约 10 分钟、模糊约 1 小时后再复习；认识后逐步安排在 1、3、7、14、30、60 天。配对和拼写答对也会更新安排。';originalHelp.querySelector('form').before(extra);
   function openDialog(key){activeDialog?.close();const d=key==='settings'?settings:library;activeDialog=d;$('.map-panel').hidden=view!=='study'&&view!=='home';$('#word-toolbar').hidden=view==='study'||view==='home'||mode==='quiz';$('#practice-scope').hidden=!['match','spell'].includes(mode)||view!=='practice';$('#goal-setting').value=String(LearningProgress.stats().goal);d.showModal();document.dispatchEvent(new Event('study-controls-updated'));}
-  const titles={lookup:['','查词',''],collection:['','已添加',''],translate:['','句子翻译',''],home:['YOUR LEARNING SPACE','每天一点，积累更多。','把今天的回忆，变成明天的积累。'],study:['FLASHCARDS','专注一个词。','先回忆，再翻卡确认。'],practice:['PRACTICE','让记忆更扎实。','选择一种练习，检验真正掌握了多少。'],browse:['WORD LIBRARY','你的词汇库。','词义、词性与例句，随手可查。'],mistakes:['REVIEW NOTEBOOK','把薄弱处补起来。','配对错词会在整轮结束后显示。']};
+  const titles={materials:['','添加到词库',''],packs:['','学习包',''],lookup:['','查词',''],collection:['','已添加',''],translate:['','句子翻译',''],home:['YOUR LEARNING SPACE','每天一点，积累更多。','把今天的回忆，变成明天的积累。'],study:['FLASHCARDS','专注一个词。','先回忆，再翻卡确认。'],practice:['PRACTICE','让记忆更扎实。','选择一种练习，检验真正掌握了多少。'],browse:['WORD LIBRARY','你的词汇库。','词义、词性与例句，随手可查。'],mistakes:['REVIEW NOTEBOOK','把薄弱处补起来。','配对错词会在整轮结束后显示。']};
   if(personal){
     titles.study=['','背单词',''];
     titles.practice=['','练习',''];
@@ -61,6 +63,8 @@
     view=next;
     document.body.dataset.view=next;
     home.hidden=next!=='home';
+    if (workspace) workspace.hidden = !['materials','packs'].includes(next);
+    location.hidden = ['materials','packs'].includes(next);
     const inExercise=next==='practice' && document.body.dataset.exercise==='true';
     practice.hidden=next!=='practice'||inExercise;
     $('#exercise-layout').hidden=!['study','browse'].includes(next)&&!inExercise;
@@ -71,7 +75,7 @@
     $('#view-kicker').textContent=kicker;
     $('#view-title').textContent=title;
     $('#view-description').textContent=description;
-    $('.range-button').hidden=['home','mistakes','lookup','collection','translate'].includes(next);
+    $('.range-button').hidden=['home','mistakes','lookup','collection','translate','materials','packs'].includes(next);
     if(personal){
       $('#dictionary').hidden=next!=='lookup';
       $('#personal-collection').hidden=next!=='collection';
@@ -111,6 +115,9 @@
     window.scrollTo({top:0,behavior:'instant'});
   }
   document.addEventListener('click',e=>{const v=e.target.closest('button[data-view]'),o=e.target.closest('button[data-open]'),x=e.target.closest('button[data-exercise]');if(v)navigate(v.dataset.view);else if(o)openDialog(o.dataset.open);else if(x)exercise(x.dataset.exercise);});
+  document.addEventListener('studio-navigate', event => {
+    if (personal && Object.hasOwn(titles, event.detail)) navigate(event.detail);
+  });
   function exercise(next){
     activeDialog?.close();
     document.body.dataset.exercise='true';
@@ -172,7 +179,7 @@
   let pendingBackup;$('#backup-file').onchange=async e=>{pendingBackup=null;$('#backup-preview').hidden=true;const f=e.target.files[0];if(!f)return;try{if(f.size>20*1024*1024)throw Error('备份文件过大。');const data=JSON.parse(await f.text());const entries=validateLearningBackup(data);pendingBackup=entries;$('#backup-description').textContent=`包含 ${entries.length} 项本地记录。恢复会覆盖相同记录，其余保留；恢复前将自动下载当前备份。`;$('#backup-preview').hidden=false;$('#backup-status').textContent='已读取，确认后才恢复。';}catch(err){$('#backup-status').textContent=err.message;}};
   $('#backup-confirm').onclick=()=>{if(!pendingBackup)return;const old=pendingBackup.map(([k])=>[k,localStorage.getItem(k)]);try{downloadBackup();for(const [k,v] of pendingBackup)localStorage.setItem(k,v);window.location.reload();}catch{for(const [k,v] of old){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch{}}$('#backup-status').textContent='恢复未完成，可能存储空间不足。请保留刚导出的备份。';}};
   // Do not let hidden exercises react to global shortcuts.
-  document.addEventListener('keydown',e=>{if((['home','mistakes','translate','lookup','collection'].includes(view)||view==='practice'&&!practice.hidden)&&!e.target.closest('input,textarea,select,button,a')){if(['Space','ArrowLeft','ArrowRight','Digit1','Digit2','Digit3'].includes(e.code))e.stopImmediatePropagation();}},true);
+  document.addEventListener('keydown',e=>{if((['home','mistakes','translate','lookup','collection','materials','packs'].includes(view)||view==='practice'&&!practice.hidden)&&!e.target.closest('input,textarea,select,button,a')){if(['Space','ArrowLeft','ArrowRight','Digit1','Digit2','Digit3'].includes(e.code))e.stopImmediatePropagation();}},true);
   setInterval(()=>{if(view==='home'&&!document.hidden)renderHome();},60000);
   syncCard();renderHome();renderView('home');
   if(personal){
@@ -181,6 +188,7 @@
       pendingView=sessionStorage.getItem('word-accumulator.next-view');
       sessionStorage.removeItem('word-accumulator.next-view');
     }catch{}
-    if(['study','collection','lookup'].includes(pendingView))navigate(pendingView);
+    if (['study','collection','lookup','browse'].includes(pendingView)) navigate(pendingView);
+    else if (window.location.hash === '#packs') navigate('packs');
   }
 })();

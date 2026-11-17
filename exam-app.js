@@ -1,21 +1,24 @@
 /* The second-stage study workspace. Personal material stays on this device. */
-(() => {
+function StudyPackWorkspace(root) {
   'use strict';
-  const C = StudyPackCore, S = StudyPackStore, $ = byId;
+  const C = StudyPackCore, S = StudyPackStore, L = VocabularyLibrary;
+  const $ = id => root.getElementById(id);
+  const navigate = view => document.dispatchEvent(new CustomEvent('studio-navigate', { detail: view }));
+  let materialDraft, selectedLibrary, libraryGroups = [], savedLibrary, preferLibrary;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clone = x => JSON.parse(JSON.stringify(x));
   let packs = [], active, draft, editing, page = 0, view = 'home', archived = false, busy = false;
   let noticeTimer, draftTimer, draftWrites = Promise.resolve(), ocrWorker, ocrCancel, ocrToken = 0, ocrBusy = false, previewBusy = false;
-  let accent = 'en-US', libraryLimit = 50;
+  let accent = 'en-US';
   const unfinished = p => p.session && p.session.index < p.session.tasks.length;
   const defaultDate = () => C.day(Date.now() + 7 * 86400000);
   function freshDraft() { return { text: '', sources: [], rows: [], skipped: [], name: '', examDate: defaultDate(), minutes: 15, modes: [...C.MODES], step: 1, importMode: 'image' }; }
   function notice(message, permanent = false) { clearTimeout(noticeTimer); $('notice').textContent = message; if (!permanent) noticeTimer = setTimeout(() => { $('notice').textContent = ''; }, 6500); }
   function fail(error) { notice(error.message || '操作未完成，请重试。', true); }
   function show(next) {
-    stopSpeech(); view = next; document.body.dataset.view = next;
-    for (const id of ['home', 'import', 'pack', 'practice', 'library']) $('view-' + id).hidden = next !== id;
-    document.querySelectorAll('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false'));
+    stopSpeech(); view = next; 
+    for (const id of ['home', 'import', 'pack', 'practice', 'saved']) $('view-' + id).hidden = next !== id;
+    root.querySelectorAll('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === next ? 'page' : 'false'));
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function confirmAction(title, description, actionText = '确认') {
@@ -49,78 +52,234 @@
  $('pack-list').innerHTML = visible.length ? visible.map(p => {
   const s = stats(p), plan = C.plan(p), ratio = s.total ? s.passed / s.total * 100 : 0;
   return `<button class="pack-card" data-pack="${esc(p.id)}"><span class="pack-icon">▤</span><h3>${esc(p.name)}</h3><p class="pack-meta">${p.items.filter(i => i.enabled).length} 条词句 · ${deadline(p)}</p><progress max="100" value="${ratio}" aria-label="练习通过比例"></progress><div class="card-foot"><span>${unfinished(p) ? '继续上次练习' : plan.selected.length ? '今日安排 ' + plan.selected.length + ' 题' : '查看学习与复习'}</span><span>↗</span></div></button>`;
- }).join('') : `<div class="empty-card"><span class="empty-icon" aria-hidden="true">＋</span><div><h3>${archived ? '还没有归档的学习包' : '第一份，从你最想学的开始。'}</h3><p>${archived ? '归档后的词句仍会保留在「词句积累」。' : '词表截图、课堂重点、电影台词，都可以成为你的学习材料。'}</p></div>${archived ? '' : '<button class="primary" data-action="new">导入第一份资料 ↗</button>'}</div>`;
+ }).join('') : `<div class="empty-card"><span class="empty-icon" aria-hidden="true">＋</span><div><h3>${archived ? '还没有归档的学习包' : '还没有学习包'}</h3><p>${archived ? '可以从这里恢复已归档的学习包。' : '在上方选择词库分组，创建你的第一个学习包。'}</p></div></div>`;
  const latest = packs.find(p => !p.archived && (unfinished(p) || p.history.length));
  $('return-strip').hidden = !latest;
  if(latest) $('return-strip').innerHTML = `<div><span class="status-dot"></span><span>接着上次学</span><strong>${esc(latest.name)}</strong></div><button data-continue-pack="${esc(latest.id)}">继续学习 →</button>`;
 }
   function readForm() {
     draft.text = $('import-text').value; draft.name = $('pack-name').value.trim(); draft.examDate = $('exam-date').value;
-    draft.modes = [...document.querySelectorAll('[name=pack-mode]:checked')].map(e => e.value);
+    draft.modes = [...root.querySelectorAll('[name=pack-mode]:checked')].map(e => e.value);
   }
   function saveDraftSoon() {
-    clearTimeout(draftTimer); $('draft-status').textContent = '正在保存草稿…';
+    if (!draft || draft !== materialDraft) return;
+    readForm();
+    const copy = clone(draft);
+    clearTimeout(draftTimer);
+    $('draft-status').textContent = '正在保存草稿…';
     draftTimer = setTimeout(() => {
-      if (!draft) return;
-      readForm(); const copy = clone(draft);
       draftWrites = draftWrites.catch(() => {}).then(() => S.meta('draft', copy));
       draftWrites.then(() => { $('draft-status').textContent = '草稿已保存在当前设备'; }).catch(fail);
     }, 350);
   }
   function setForm() {
  $('import-text').value = draft.text; $('pack-name').value = draft.name; $('exam-date').value = draft.examDate;
- document.querySelectorAll('[data-minutes]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.minutes)===draft.minutes));
- document.querySelectorAll('[name=pack-mode]').forEach(e=>{e.checked=draft.modes.includes(e.value);e.disabled=false;e.closest('label').classList.remove('unavailable');});
+ root.querySelectorAll('[data-minutes]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.minutes)===draft.minutes));
+ root.querySelectorAll('[name=pack-mode]').forEach(e=>{e.checked=draft.modes.includes(e.value);e.disabled=false;e.closest('label').classList.remove('unavailable');});
  setImportMode(draft.importMode || (draft.text?'text':'image')); renderSources();
 }
   function setImportMode(mode){
  draft.importMode=mode;
  $('image-input-panel').hidden=mode!=='image';$('text-input-panel').hidden=mode!=='text';
- document.querySelectorAll('[data-import-mode]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.importMode===mode));
+ root.querySelectorAll('[data-import-mode]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.importMode===mode));
 }
-  function wizardStep(step){
- draft.step=step;
- const titles=['先把要学的，放进来。','确认一下，这些是你想学的吗？','准备好了，开始你的第一轮。'];
- const descriptions=['一张词表截图，或几行双语句子，就能开始。','识别结果可以直接修改；不需要的取消勾选。点「原文」随时对照。','名字、时间和题型都能改。先用默认安排开始也可以。'];
- $('import-heading').textContent=editing&&step===3?'调整好，继续你的学习。':titles[step-1];
- $('import-description').textContent=descriptions[step-1];
- $('import-kicker').textContent=`第 ${step} 步 · ${['添加资料','核对词句','开始练习'][step-1]}`;
- for(const [i,id] of ['step-one','step-two','step-three'].entries()){
-  $(id).classList.toggle('active',i+1===step);$(id).classList.toggle('done',i+1<step);
-  $(id).setAttribute('aria-current',i+1===step?'step':'false');
- }
- $('import-inputs').hidden=step!==1;$('preview-actions').hidden=step!==1;
- $('review-panel').hidden=step===1;$('review-content').hidden=step!==2;$('plan-content').hidden=step!==3;
- if(step===2)renderReview();if(step===3)renderPlan();
- window.scrollTo({top:0,behavior:'instant'});
-}
+  function wizardStep(step) {
+    draft.step = step;
+    const importing = draft === materialDraft;
+    const ending = importing ? '保存到词库' : '设置练习';
+    const titles = ['添加到词库', '核对要保存的词句', ending];
+    const descriptions = [
+      '输入单词，粘贴词表，或添加图片与文档。',
+      '直接修改识别结果，并勾选要保留的内容。点「原文」可以对照。',
+      importing ? '选择已有词库，或为这批单词新建一个词库。' : '设置学习包名称、日期与题型。'
+    ];
+    $('import-heading').textContent = titles[step - 1];
+    $('import-description').textContent = descriptions[step - 1];
+    $('import-kicker').textContent = importing ? `第 ${step} 步 · ${['添加资料','核对词句',ending][step - 1]}` : '';
+    $('final-step-label').textContent = ending;
+    $('step-one').parentElement.hidden = !importing;
+    $('back-to-sources').hidden = !importing;
+    $('back-to-review').hidden = Boolean(draft.fromLibrary);
+    for (const [index, id] of ['step-one','step-two','step-three'].entries()) {
+      $(id).classList.toggle('active', index + 1 === step);
+      $(id).classList.toggle('done', index + 1 < step);
+      $(id).setAttribute('aria-current', index + 1 === step ? 'step' : 'false');
+    }
+    $('import-inputs').hidden = step !== 1;
+    $('preview-actions').hidden = step !== 1;
+    $('review-panel').hidden = step === 1;
+    $('review-content').hidden = step !== 2;
+    $('destination-content').hidden = step !== 3 || !importing;
+    $('plan-content').hidden = step !== 3 || importing;
+    if (step === 2) renderReview();
+    if (step === 3) {
+      if (importing) renderDestination();
+      else renderPlan();
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
   function chosenComplete(){
  const chosen=draft.rows.filter(i=>i.enabled);
  if(!chosen.length){notice('先选择至少一条想学的词句。');return false;}
  const incomplete=chosen.find(i=>!i.term.trim()||!i.meaning.trim());
  if(incomplete){
   page=Math.floor(draft.rows.indexOf(incomplete)/20);wizardStep(2);
-  const field=document.querySelector(`[data-row="${CSS.escape(incomplete.id)}"] [data-field="${incomplete.term.trim()?'meaning':'term'}"]`);
+  const field=root.querySelector(`[data-row="${CSS.escape(incomplete.id)}"] [data-field="${incomplete.term.trim()?'meaning':'term'}"]`);
   field?.focus();notice('这一条还需要补全英文和中文，也可以取消勾选。');return false;
  }
  return true;
 }
-  function proceedToPlan(){
- if(!editing && !draft.photoReport && draft.sources.some(isOldPhoto)) return notice('请返回「修改资料」重识别旧照片，再重新核对。');
- if(!chosenComplete())return;
- readForm();
- if(!draft.name){
-  draft.name=draft.sources.find(s=>s.id!=='pasted')?.name.replace(/\.[^.]+$/,'').slice(0,65)||'我的英语练习 · '+C.day().slice(5).replace('-','/');
-  $('pack-name').value=draft.name;
- }
- const available=C.MODES.filter(m=>draft.rows.some(i=>C.eligible(i,m)));
- let selected=draft.modes.filter(m=>available.includes(m));if(!selected.length)selected=available;
- document.querySelectorAll('[name=pack-mode]').forEach(e=>{e.disabled=!available.includes(e.value);e.checked=selected.includes(e.value);e.closest('label').classList.toggle('unavailable',e.disabled);});
- readForm();wizardStep(3);saveDraftSoon();
-}
+  function proceedToPlan() {
+    if (draft === materialDraft) {
+      if (!draft.photoReport && draft.sources.some(isOldPhoto)) {
+        return notice('请返回「修改资料」，重识别旧照片后再核对。');
+      }
+      const selected = draft.rows.filter(row => row.enabled);
+      if (!selected.length) return notice('请先勾选要保存的词句。');
+      const incomplete = selected.find(row => !row.term.trim() || row.kind === 'sentence' && !row.meaning.trim());
+      if (incomplete) {
+        page = Math.floor(draft.rows.indexOf(incomplete) / 20);
+        wizardStep(2);
+        return notice('请补齐所选词条的英文，以及双语句子的译文。');
+      }
+      wizardStep(3);
+      saveDraftSoon();
+      return;
+    }
+    if (!chosenComplete()) return;
+    readForm();
+    if (!draft.name) {
+      draft.name = '我的英语练习 · ' + C.day().slice(5).replace('-', '/');
+      $('pack-name').value = draft.name;
+    }
+    const available = C.MODES.filter(mode => draft.rows.some(row => C.eligible(row, mode)));
+    let selected = draft.modes.filter(mode => available.includes(mode));
+    if (!selected.length) selected = available;
+    root.querySelectorAll('[name=pack-mode]').forEach(input => { input.checked = selected.includes(input.value); });
+    readForm();
+    wizardStep(3);
+  }
+
+  function renderDestination() {
+    draft.materialId ||= C.uid();
+    const selected = draft.rows.filter(row => row.enabled);
+    const words = selected.filter(row => row.kind === 'word').length;
+    const sentences = selected.length - words;
+    $('destination-summary').textContent = `已选 ${words} 个单词／短语、${sentences} 个句子。`;
+    $('word-destination').hidden = !words;
+    $('sentence-destination').hidden = !sentences;
+    const options = [
+      new Option('收藏单词', L.collectionId),
+      new Option('新建词库', 'new'),
+      ...L.catalog().filter(deck => deck.id && deck.words && deck.id !== L.collectionId)
+        .map(deck => new Option(deck.name, deck.id)),
+    ];
+    $('material-deck').replaceChildren(...options);
+    const suggested = draft.sources.find(source => source.id !== 'pasted')?.name.replace(/\.[^.]+$/, '').slice(0, 80);
+    const preferred = draft.targetDeck ?? (suggested ? 'new' : L.collectionId);
+    $('material-deck').value = options.some(option => option.value === preferred) ? preferred : L.collectionId;
+    $('material-name').value = draft.libraryName ?? suggested ?? '';
+    $('material-name-field').hidden = $('material-deck').value !== 'new';
+  }
+
+  async function saveMaterials() {
+    if (busy || draft !== materialDraft) return;
+    busy = true;
+    $('save-to-library').disabled = true;
+    try {
+      const rows = draft.rows.filter(row => row.enabled);
+      if (!rows.length) return notice('请先勾选要保存的词句。');
+      savedLibrary = await L.save(rows, $('material-deck').value, $('material-name').value,
+        draft.sources, draft.materialId, 'import-' + draft.materialId);
+      preferLibrary = savedLibrary.deck?.id || L.sentencesId;
+      const message = [];
+      if (savedLibrary.addedWords) message.push(`${savedLibrary.addedWords} 个单词已加入「${savedLibrary.deck.name}」`);
+      if (savedLibrary.addedSentences) message.push(`${savedLibrary.addedSentences} 个句子已加入「已添加」`);
+      $('library-saved-message').textContent = message.length ? message.join('，') + '。' : '所选词句已经在词库里。';
+      clearTimeout(draftTimer);
+      await draftWrites.catch(() => {});
+      try {
+        await S.meta('draft', null);
+      } catch {
+        notice('词库已保存，旧草稿未能清除。');
+      }
+      materialDraft = null;
+      draft = null;
+      show('saved');
+    } catch (error) {
+      fail(error);
+    } finally {
+      busy = false;
+      $('save-to-library').disabled = false;
+    }
+  }
+
+  function selectLibrary() {
+    const choices = L.catalog();
+    selectedLibrary = choices.find(deck => deck.id === $('pack-deck').value) || choices[0];
+    libraryGroups = L.groups(selectedLibrary);
+    $('pack-groups').replaceChildren(...libraryGroups.map((group, index) => {
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = String(index);
+      label.append(checkbox, document.createTextNode(group.name + ' · ' + group.entries.length + ' 条'));
+      return label;
+    }));
+    updateGroupSelection();
+  }
+
+  function showPackPicker() {
+    const select = $('pack-deck');
+    const previous = preferLibrary ?? (select.options.length ? select.value : activeDeck?.id || '');
+    select.replaceChildren(...L.catalog().map(deck => new Option(deck.name, deck.id)));
+    if ([...select.options].some(option => option.value === previous)) select.value = previous;
+    preferLibrary = undefined;
+    selectLibrary();
+  }
+
+  function pickedGroups() {
+    return [...$('pack-groups').querySelectorAll('input:checked')].map(input => libraryGroups[Number(input.value)]);
+  }
+
+  function updateGroupSelection() {
+    const picked = pickedGroups();
+    const total = picked.reduce((sum, group) => sum + group.entries.length, 0);
+    $('choose-pack-groups').disabled = !total || total > 300;
+    $('pack-group-count').textContent = total > 300 ? '每个学习包最多 300 条，请少选几组。' :
+      total ? `已选 ${picked.length} 组 · ${total} 条` : '请勾选要练的分组。';
+  }
+
+  async function createFromLibrary() {
+    if (busy || ocrBusy || previewBusy) return;
+    const picked = pickedGroups();
+    if (!picked.length || picked.reduce((sum, group) => sum + group.entries.length, 0) > 300) return;
+    busy = true;
+    $('choose-pack-groups').disabled = true;
+    try {
+      const { rows, sources } = await L.buildRows(selectedLibrary, picked);
+      if (!rows.length) return notice('所选分组缺少可练的双语词句，请先补齐释义。');
+      if (document.body.dataset.view !== 'packs') return;
+      draft = {
+        ...freshDraft(), rows, sources, fromLibrary: true,
+        name: (picked.length === 1 ? picked[0].name : selectedLibrary.name + ' · ' + picked.length + ' 组').slice(0, 80),
+      };
+      editing = null;
+      setForm();
+      $('save-pack').textContent = '创建并开始练习 →';
+      $('save-status').textContent = '已跳过没有中文释义的条目。';
+      show('import');
+      proceedToPlan();
+    } catch (error) {
+      fail(error);
+    } finally {
+      busy = false;
+      updateGroupSelection();
+    }
+  }
   function renderPlan(){
  const available=C.MODES.filter(m=>draft.rows.some(i=>C.eligible(i,m)));
- document.querySelectorAll('[name=pack-mode]').forEach(e=>{
+ root.querySelectorAll('[name=pack-mode]').forEach(e=>{
   e.disabled=!available.includes(e.value);if(e.disabled)e.checked=false;
   e.closest('label').classList.toggle('unavailable',e.disabled);
   e.closest('label').querySelector('small').textContent=e.disabled?(['cloze','listen'].includes(e.value)?'选入单词或短语后可练':'选入双语句子后可练'):({cloze:'从词义和原句里回忆',listen:'听到单词，写出拼写','en-zh':'读懂原句的意思','zh-en':'用英文把意思说出来'}[e.value]);
@@ -132,15 +291,23 @@
  $('plan-ready-summary').textContent=`${words} 个单词／短语 + ${chosen.length-words} 个句子，每天 ${draft.minutes} 分钟。`;
  $('plan-preview').innerHTML=draft.modes.map(m=>`<span>${C.labels[m]} <b>${tasks.filter(t=>t.mode===m).length}</b></span>`).join('');
 }
-  async function startImport(){
- if(ocrBusy){show('import');return;}
- const stored=draft||await S.meta('draft');
- draft=stored&&Array.isArray(stored.sources)&&Array.isArray(stored.rows)?stored:freshDraft();
- editing=draft.editingId?packs.find(p=>p.id===draft.editingId)||null:null;
- setForm();$('save-pack').textContent=editing?'保存修改 →':'创建并开始练习 →';
- $('save-status').textContent='';page=0;show('import');
- wizardStep(draft.rows.length?Math.max(1,Math.min(3,draft.step||2)):1);
-}
+  async function startImport() {
+    if (busy || previewBusy) return;
+    const stored = materialDraft || await S.meta('draft');
+    if (document.body.dataset.view !== 'materials') return;
+    if (stored && Array.isArray(stored.sources) && Array.isArray(stored.rows) && !stored.editingId) {
+      materialDraft = stored;
+    } else {
+      materialDraft = freshDraft();
+      materialDraft.importMode = 'text';
+    }
+    draft = materialDraft;
+    editing = null;
+    setForm();
+    page = 0;
+    show('import');
+    wizardStep(draft.rows.length ? Math.max(1, Math.min(3, draft.step || 2)) : 1);
+  }
   function isOldPhoto(source) {
     return source.image && source.text && source.ocrRevision !== StudyPackPhoto.version;
   }
@@ -224,24 +391,39 @@
     }
   }
   async function addFiles(files) {
-    if (ocrBusy) return notice('请等当前图片识别完成，或先停止识别。');
+    if (ocrBusy || previewBusy) return notice('请等当前资料读取完成。');
+    const work = draft;
+    previewBusy = true;
+    $('preview').disabled = true;
     const count = draft.sources.filter(s => s.id !== 'pasted').length;
-    if (files.length + count > 10) return notice('每个学习包最多添加 10 个文件，请分批创建学习包。');
+    if (files.length + count > 10) {
+      previewBusy = false;
+      $('preview').disabled = false;
+      return notice('每批最多添加 10 个文件，请分批导入。');
+    }
     const images = [];
     for (const file of files) {
       try {
-        if (file.size > 12 * 1024 * 1024) throw Error(file.name + ' 超过 12 MB，请压缩或裁切。');
+        if (isDeckImage(file) && file.size > 12 * 1024 * 1024) throw Error(file.name + ' 超过 12 MB，请压缩或裁切。');
         const source = { id: C.uid(), name: file.name.slice(0, 200), text: '', image: '' };
-        if (/\.(?:png|jpe?g|webp)$/i.test(file.name) || /^image\/(?:png|jpeg|webp)$/.test(file.type)) { source.image = await imageData(file); images.push(source); }
-        else if (/\.(?:txt|csv|tsv)$/i.test(file.name)) { source.text = (await file.text()).slice(0, 120000); }
-        else throw Error(file.name + ' 格式暂不支持。请使用 JPG、PNG、WebP 或文本文件。');
-        draft.sources.push(source);
+        if (isDeckImage(file)) {
+          source.image = await imageData(file);
+          images.push(source);
+        } else {
+          source.text = (await readDeckFile(file, status => notice(status), () => {
+            throw Error('无法读取图片');
+          })).slice(0, 120000);
+        }
+        work.sources.push(source);
       } catch (error) { fail(error); }
     }
-    renderSources(); saveDraftSoon(); await recognizeSources(images);
+    previewBusy = false;
+    $('preview').disabled = false;
+    renderSources(); saveDraftSoon();
+    await recognizeSources(images);
   }
   async function preview() {
-    if (ocrBusy || previewBusy) return;
+    if (ocrBusy || previewBusy || draft !== materialDraft) return;
     readForm();
     if (draft.sources.some(source => isOldPhoto(source) && !source.error)) {
       await recognizeSources(draft.sources.filter(source => isOldPhoto(source) && !source.error));
@@ -254,14 +436,14 @@
     try {
       draft.sources = draft.sources.filter(s => s.id !== 'pasted');
       if (draft.text.trim()) draft.sources.unshift({ id: 'pasted', name: '粘贴的文字', text: draft.text, image: '' });
-      const parsed = draft.sources.filter(source => !source.image && source.text).map(source => C.parse(source.text, source.id));
+      const parsed = draft.sources.filter(source => !source.image && source.text).map(source => C.parse(source.text, source.id, 600));
       const photos = draft.sources.filter(source => source.image);
       const photoRows = C.dedupe(photos.filter(source => source.ocrRevision === StudyPackPhoto.version)
         .flatMap(source => StudyPackPhoto.extract(source.text, source.id)));
-      const candidates = await Promise.all(photoRows.slice(0, 300).map(item => StudyPackPhoto.verify(item, WordDictionary.local)));
+      const candidates = await Promise.all(photoRows.slice(0, 600).map(item => StudyPackPhoto.verify(item, WordDictionary.local)));
       const confirmed = candidates.filter(Boolean);
       const keptSources = new Set(confirmed.flatMap(item => item.sources.map(ref => ref.sourceId)));
-      draft.rows = C.dedupe([...parsed.flatMap(result => result.rows), ...confirmed]).slice(0, 300);
+      draft.rows = C.dedupe([...parsed.flatMap(result => result.rows), ...confirmed]).slice(0, 600);
       draft.skipped = parsed.flatMap(result => result.skipped);
       draft.photoReport = photos.length ? {
         skipped: photos.filter(source => !keptSources.has(source.id)).map(source => source.name),
@@ -271,7 +453,13 @@
       const missing = draft.rows.filter(item => item.kind === 'word' && !item.meaning);
       await Promise.all(missing.map(async item => {
         const entry = await WordDictionary.local(item.term);
-        if (entry.meaning) { item.meaning = entry.meaning.slice(0, 1500); item.pos ||= entry.pos; item.origin = 'dictionary'; }
+        if (entry.meaning) {
+        item.meaning = entry.meaning.slice(0, 1500);
+        item.pos ||= entry.pos;
+        item.example ||= entry.example || '';
+        item.exampleZh ||= entry.exampleZh || '';
+        item.origin = 'dictionary';
+      }
       }));
       page = 0; wizardStep(2); saveDraftSoon();
     } catch (error) { fail(error); }
@@ -280,7 +468,7 @@
   function reviewCounts() {
     const chosen = draft.rows.filter(i => i.enabled);
     $('review-summary').textContent = `共 ${draft.rows.length} 条 · 已选 ${chosen.filter(i => i.kind === 'word').length} 个词／短语、${chosen.filter(i => i.kind === 'sentence').length} 个句子`;
-    $('chosen-summary').textContent = `已选 ${chosen.length} 条 · 下一步设置练习`;
+    $('chosen-summary').textContent = `已选 ${chosen.length} 条 · ${draft === materialDraft ? '下一步选择词库' : '下一步设置练习'}`;
     $('select-all').checked = chosen.length === draft.rows.length; $('select-all').indeterminate = chosen.length > 0 && chosen.length < draft.rows.length;
   }
   function renderReview() {
@@ -308,6 +496,7 @@
  const startImmediately=!editing;
  const pack=editing?clone(editing):{version:1,id:C.uid(),createdAt:Date.now(),revision:0,progress:{},history:[],archived:false};
  Object.assign(pack,{name:draft.name,examDate:draft.examDate,minutes:draft.minutes,modes:draft.modes,sources:clone(draft.sources),items:C.dedupe(clone(draft.rows.filter(i=>i.term.trim()))),session:null});
+ if (draft.fromLibrary) pack.fromLibrary = true;
  if(!C.tasks(pack).length)return notice('所选题型没有可练内容：单词可练首字母／听写，完整句子可练双向翻译。');
  if(editing){
   const unchanged=new Set(pack.items.filter(i=>editing.items.some(old=>old.id===i.id&&['term','meaning','kind','example'].every(k=>old[k]===i[k]))).map(i=>i.id));
@@ -316,7 +505,7 @@
  }
  busy=true;$('save-pack').disabled=true;
  try{
-  active=await persist(pack);clearTimeout(draftTimer);await draftWrites.catch(()=>{});await S.meta('draft',null);
+  active=await persist(pack);
   draft=null;editing=null;notice(startImmediately?'学习包已保存。先来一小轮，随时可以暂停。':'修改已保存。');openPack(active.id);
   if(startImmediately){busy=false;await startPractice('today');}
  }catch(error){fail(error);}finally{busy=false;$('save-pack').disabled=false;}
@@ -328,11 +517,11 @@
   function renderPack() {
     const p = active, plan = C.plan(p), selected = p.items.filter(i => i.enabled);
     const newCount = plan.selected.filter(t => !p.progress[t.key]).length;
-    $('pack-detail').innerHTML = `<button class="back-link" data-go="home">← 返回学习包</button><div class="pack-header"><div><span class="badge">${deadline(p)}</span><h1>${esc(p.name)}</h1><p class="muted">${selected.filter(i => i.kind === 'word').length} 个词／短语 · ${selected.filter(i => i.kind === 'sentence').length} 个句子 · 每天 ${p.minutes} 分钟</p></div><div class="actions"><button data-action="edit">调整内容与计划</button><button data-action="export">导出</button><button data-action="archive">${p.archived ? '恢复到学习中' : '归档'}</button></div></div><div class="detail-grid"><section class="panel today-panel"><p class="eyebrow">今天的小目标</p><h2>${plan.selected.length ? '今天先练 ' + Math.min(10, plan.selected.length) + ' 题。' : plan.doneToday ? '今天已经留下积累。' : '按自己的节奏练习。'}</h2><p class="muted">${plan.selected.length ? `先复习到期内容，再练 ${newCount} 道新题。每轮最多 10 题，做完再继续。` : plan.capacity === 0 ? '已达到今天设置的练习量。也可以选择下方题型，继续巩固。' : '暂时没有到期任务。可以选择下方题型提前练习。'}</p><div class="plan-stats"><div><strong>${plan.selected.length}</strong><span>今日待练</span></div><div><strong>${plan.due}</strong><span>到期题目</span></div><div><strong>${plan.doneToday}</strong><span>今日已练</span></div></div><div class="actions">${unfinished(p) ? '<button class="primary" data-action="resume">继续上次练习 →</button>' : `<button class="primary" data-start="today" ${!plan.selected.length ? 'disabled' : ''}>开始今日练习 →</button>`}</div>${plan.overload ? '<p class="hint">按当前时间可能无法完成全部待练内容。可以增加每日时间，或缩小本次学习范围。</p>' : ''}</section><section class="panel"><p class="eyebrow">看见自己的进步</p><h2>会认、会听，也要会表达。</h2><div class="skills">${C.MODES.map(mode => { const s = stats(p, mode); return `<div class="skill"><p>${C.labels[mode]}</p><strong>${s.passed}</strong><small> / ${s.total} 通过</small><progress value="${s.passed}" max="${s.total || 1}" aria-label="${C.labels[mode]}通过进度"></progress></div>`; }).join('')}</div><p class="hint">显示最近一次练习结果；翻译自评会标记。通过一遍后，仍会安排间隔复习。</p></section></div><div class="section-head"><h2>按题型练习</h2><span class="muted">也可以单独补薄弱项</span></div><div class="practice-options">${C.MODES.map(mode => { const n = C.tasks(p).filter(t => t.mode === mode).length; return `<button class="practice-option" data-start="${mode}" ${!n ? 'disabled' : ''}><strong>${C.labels[mode]} ↗</strong><small>${n ? n + ' 道 · ' + ({cloze:'看意思，回忆完整拼写',listen:'听发音，写出单词','en-zh':'读英文，写出中文意思','zh-en':'看中文，用英文表达'}[mode]) : '暂无已选内容'}</small></button>`; }).join('')}</div><section class="panel"><h3>原始资料</h3><div class="source-chips">${p.sources.map(s => `<button data-source="${esc(s.id)}">▤ ${esc(s.name)} ↗</button>`).join('')}</div></section><section class="pack-entries"><div class="section-head"><h2>本次学习内容</h2><span class="muted">${selected.length} 条</span></div>${selected.slice(0, 30).map(i => entryHTML(i, p)).join('')}${selected.length > 30 ? '<button class="text-button" data-go="library">到我的积累查看全部 →</button>' : ''}</section>`;
+    $('pack-detail').innerHTML = `<button class="back-link" data-go="home">← 返回学习包</button><div class="pack-header"><div><span class="badge">${deadline(p)}</span><h1>${esc(p.name)}</h1><p class="muted">${selected.filter(i => i.kind === 'word').length} 个词／短语 · ${selected.filter(i => i.kind === 'sentence').length} 个句子 · 每天 ${p.minutes} 分钟</p></div><div class="actions"><button data-action="edit">调整内容与计划</button>${p.fromLibrary ? '' : '<button data-action="copy-library">将词句加入词库</button>'}<button data-action="export">导出</button><button data-action="archive">${p.archived ? '恢复到学习中' : '归档'}</button></div></div><div class="detail-grid"><section class="panel today-panel"><p class="eyebrow">今天的小目标</p><h2>${plan.selected.length ? '今天先练 ' + Math.min(10, plan.selected.length) + ' 题。' : plan.doneToday ? '今天已经留下积累。' : '按自己的节奏练习。'}</h2><p class="muted">${plan.selected.length ? `先复习到期内容，再练 ${newCount} 道新题。每轮最多 10 题，做完再继续。` : plan.capacity === 0 ? '已达到今天设置的练习量。也可以选择下方题型，继续巩固。' : '暂时没有到期任务。可以选择下方题型提前练习。'}</p><div class="plan-stats"><div><strong>${plan.selected.length}</strong><span>今日待练</span></div><div><strong>${plan.due}</strong><span>到期题目</span></div><div><strong>${plan.doneToday}</strong><span>今日已练</span></div></div><div class="actions">${unfinished(p) ? '<button class="primary" data-action="resume">继续上次练习 →</button>' : `<button class="primary" data-start="today" ${!plan.selected.length ? 'disabled' : ''}>开始今日练习 →</button>`}</div>${plan.overload ? '<p class="hint">按当前时间可能无法完成全部待练内容。可以增加每日时间，或缩小本次学习范围。</p>' : ''}</section><section class="panel"><p class="eyebrow">看见自己的进步</p><h2>会认、会听，也要会表达。</h2><div class="skills">${C.MODES.map(mode => { const s = stats(p, mode); return `<div class="skill"><p>${C.labels[mode]}</p><strong>${s.passed}</strong><small> / ${s.total} 通过</small><progress value="${s.passed}" max="${s.total || 1}" aria-label="${C.labels[mode]}通过进度"></progress></div>`; }).join('')}</div><p class="hint">显示最近一次练习结果；翻译自评会标记。通过一遍后，仍会安排间隔复习。</p></section></div><div class="section-head"><h2>按题型练习</h2><span class="muted">也可以单独补薄弱项</span></div><div class="practice-options">${C.MODES.map(mode => { const n = C.tasks(p).filter(t => t.mode === mode).length; return `<button class="practice-option" data-start="${mode}" ${!n ? 'disabled' : ''}><strong>${C.labels[mode]} ↗</strong><small>${n ? n + ' 道 · ' + ({cloze:'看意思，回忆完整拼写',listen:'听发音，写出单词','en-zh':'读英文，写出中文意思','zh-en':'看中文，用英文表达'}[mode]) : '暂无已选内容'}</small></button>`; }).join('')}</div>${p.sources.length ? `<section class="panel"><h3>原始资料</h3><div class="source-chips">${p.sources.map(s => `<button data-source="${esc(s.id)}">▤ ${esc(s.name)} ↗</button>`).join('')}</div></section>` : ''}<section class="pack-entries"><div class="section-head"><h2>本次学习内容</h2><span class="muted">${selected.length} 条</span></div>${selected.slice(0, 30).map(i => entryHTML(i, p)).join('')}${selected.length > 30 ? `<details><summary>查看其余 ${selected.length - 30} 条</summary>${selected.slice(30).map(i => entryHTML(i, p)).join('')}</details>` : ''}</section>`;
   }
   function entryHTML(i, p) {
     const trained = C.MODES.filter(mode => p.progress[C.taskKey(i, mode)]?.attempts);
-    return `<div class="entry"><div class="term" lang="en">${esc(i.term)}<span class="entry-note">${esc(p.name)}${trained.length ? ' · ' + trained.map(m => C.labels[m] + (p.progress[C.taskKey(i, m)].stage > 0 ? ' ✓' : ' 待复习') + (p.progress[C.taskKey(i, m)].evidence === 'self' ? '（自评）' : '')).join(' / ') : ''}</span></div><span class="meaning">${esc(i.meaning)}</span><button data-entry-source="${esc(i.id)}" data-owner="${esc(p.id)}">来源 ↗</button></div>`;
+    return `<div class="entry"><div class="term" lang="en">${esc(i.term)}<span class="entry-note">${esc(p.name)}${trained.length ? ' · ' + trained.map(m => C.labels[m] + (p.progress[C.taskKey(i, m)].stage > 0 ? ' ✓' : ' 待复习') + (p.progress[C.taskKey(i, m)].evidence === 'self' ? '（自评）' : '')).join(' / ') : ''}</span></div><span class="meaning">${esc(i.meaning)}</span>${i.sources.length ? `<button data-entry-source="${esc(i.id)}" data-owner="${esc(p.id)}">来源 ↗</button>` : ''}</div>`;
   }
   function editPack(){
  editing=clone(active);
@@ -340,14 +529,6 @@
  page=0;setForm();$('save-pack').textContent='保存修改 →';
  $('save-status').textContent='修改词句或例句会重置该条练习进度，未修改的词句保留进度。';show('import');wizardStep(2);saveDraftSoon();
 }
-  function renderLibrary() {
-    const query = C.normalize($('library-search').value);
-    const entries = packs.flatMap(p => p.items.filter(i => i.enabled && (!query || C.normalize(i.term + ' ' + i.meaning).includes(query))).map(i => ({ i, p })));
-    const senses = new Set(entries.map(({ i }) => C.normalize(i.term) + '|' + C.normalize(i.meaning)));
-    $('library-count').textContent = `${senses.size} 条不同词义／句子 · ${entries.length} 份学习记录`;
-    $('library-list').innerHTML = entries.length ? entries.slice(0, libraryLimit).map(({ i, p }) => entryHTML(i, p)).join('') : '<div class="empty-card"><h3>积累从一条词句开始。</h3><p>创建学习包后，词句和原文会出现在这里。</p></div>';
-    $('library-more').hidden = entries.length <= libraryLimit;
-  }
   function sourceView(sourceIds, pack, row) {
     const sources = pack.sources.filter(s => sourceIds.includes(s.id));
     $('source-title').textContent = row ? row.term.slice(0, 70) : sources[0]?.name || '原始资料';
@@ -389,7 +570,7 @@
     $('speech-line').hidden=!playable;
     $('question-play').hidden=!playable||task.mode==='listen';
     $('question-play').textContent=item.kind==='word'?'♪ 朗读单词':'♪ 朗读原句';
-    $('question-source').hidden=!s.revealed&&task.mode==='listen';
+    $('question-source').hidden = !item.sources.length || !s.revealed && task.mode === 'listen';
     $('answer-label').textContent = task.mode === 'en-zh' ? '写出中文意思' : task.mode === 'zh-en' ? '用英文表达这句话' : '请输入完整单词或短语';
     $('practice-answer').value = s.input || ''; $('practice-answer').lang = task.mode === 'en-zh' ? 'zh-CN' : 'en';
     $('answer-feedback').hidden = true; $('self-review').hidden = true; $('next-question').hidden = true; $('remember-alternative').checked = false;
@@ -466,39 +647,52 @@
       renderHome(); show('home'); notice('导入完成，原有学习包未被覆盖。');
     } catch (error) { fail(error); }
   }
-  async function sample() {
-    const existing = packs.find(p => p.sample && !p.archived); if (existing) return openPack(existing.id);
-    const sources = [{ id: 'sample-words', name: '示例 · 课堂词表（原创）', text: C.sampleText, image: '' }, { id: 'sample-sentences', name: '示例 · 重点句（原创）', text: C.sampleSentences, image: '' }];
-    const pack = { version: 1, id: C.uid(), name: '英语小测 · 先体验这一份', examDate: defaultDate(), minutes: 15, modes: [...C.MODES], sources, items: sources.flatMap(s => C.parse(s.text, s.id).rows), progress: {}, history: [], createdAt: Date.now(), revision: 0, sample: true, archived: false };
-    active = await persist(pack); openPack(active.id);
+  async function copyOldPack() {
+    if (busy || !active) return;
+    const previous = active;
+    if (!await confirmAction('把词句加入词库？', '单词存入同名词库，句子存入「已添加」。原学习包和练习进度会保留。', '加入词库')) return;
+    busy = true;
+    try {
+      const rows = previous.items.filter(row => row.enabled && (row.kind === 'sentence' ?
+        row.term.trim() && row.meaning.trim() : termPattern.test(row.term)));
+      if (!rows.length) return notice('这份学习包没有可导入的词句。');
+      const existing = L.catalog().find(deck => deck.id === 'pack-' + previous.id);
+      savedLibrary = await L.save(rows, existing?.id || 'new', previous.name, previous.sources, 'pack-' + previous.id, 'pack-' + previous.id);
+      preferLibrary = savedLibrary.deck?.id || L.sentencesId;
+      notice(`已加入 ${savedLibrary.addedWords} 个单词和 ${savedLibrary.addedSentences} 个句子。`);
+    } catch (error) {
+      fail(error);
+    } finally {
+      busy = false;
+    }
   }
-  document.addEventListener('click', async event => {
+  root.addEventListener('click', async event => {
     const b = event.target.closest('button'); if (!b) return;
     try {
-      if (b.dataset.go) { if (b.dataset.go === 'home') { renderHome(); show('home'); } else if (b.dataset.go === 'library') { renderLibrary(); show('library'); } }
+      if (b.dataset.go === 'home') { renderHome(); show('home'); }
       if (b.dataset.pack) openPack(b.dataset.pack);
       if(b.dataset.continuePack){openPack(b.dataset.continuePack);if(unfinished(active))await startPractice('today',true);else if(C.plan(active).selected.length)await startPractice('today');}
       if(b.dataset.importMode){setImportMode(b.dataset.importMode);saveDraftSoon();}
       if (b.dataset.start) await startPractice(b.dataset.start);
-      if (b.dataset.action === 'new') await startImport();
-      if (b.dataset.action === 'edit') editPack();
+      if (b.dataset.action === 'copy-library') await copyOldPack();
+      if (b.dataset.action === 'edit' && !ocrBusy && !previewBusy && !busy) editPack();
       if (b.dataset.action === 'resume') await startPractice('today', true);
       if (b.dataset.action === 'export') exportPacks([active]);
-      if (b.dataset.action === 'archive') { active.archived = !active.archived; await persist(); renderHome(); show('home'); notice(active.archived ? '已归档。可在「查看已归档」中恢复，词句仍在我的积累。' : '已恢复到学习中。'); }
+      if (b.dataset.action === 'archive') { active.archived = !active.archived; await persist(); renderHome(); show('home'); notice(active.archived ? '已归档。可在「查看已归档」中恢复。' : '已恢复到学习中。'); }
       if (b.dataset.source) sourceView([b.dataset.source], active);
       if (b.dataset.entrySource) { const p = packs.find(p => p.id === b.dataset.owner), i = p.items.find(i => i.id === b.dataset.entrySource); sourceView(i.sources.map(s => s.sourceId), p, i); }
       if (b.dataset.rowSource) { const i = draft.rows.find(i => i.id === b.dataset.rowSource); sourceView(i.sources.map(s => s.sourceId), draft, i); }
       if (b.dataset.draftSource) sourceView([b.dataset.draftSource], draft);
-      if (b.dataset.removeSource && !ocrBusy) { draft.sources = draft.sources.filter(s => s.id !== b.dataset.removeSource); renderSources(); saveDraftSoon(); }
+      if (b.dataset.removeSource && !ocrBusy && !previewBusy) { draft.sources = draft.sources.filter(s => s.id !== b.dataset.removeSource); renderSources(); saveDraftSoon(); }
       if (b.dataset.retrySource && !ocrBusy && !previewBusy) await recognizeSources(draft.sources.filter(s => s.id === b.dataset.retrySource));
-      if (b.dataset.minutes) { draft.minutes = Number(b.dataset.minutes); document.querySelectorAll('[data-minutes]').forEach(n => n.setAttribute('aria-pressed', n === b)); renderPlan(); saveDraftSoon(); }
+      if (b.dataset.minutes) { draft.minutes = Number(b.dataset.minutes); root.querySelectorAll('[data-minutes]').forEach(n => n.setAttribute('aria-pressed', n === b)); renderPlan(); saveDraftSoon(); }
       if (b.dataset.kind) { const row = draft.rows.find(i => i.id === b.closest('[data-row]').dataset.row); row.kind = b.dataset.kind; renderReview(); saveDraftSoon(); }
-      if (b.dataset.accent) { accent = b.dataset.accent; document.querySelectorAll('[data-accent]').forEach(n => n.setAttribute('aria-pressed', n === b)); }
+      if (b.dataset.accent) { accent = b.dataset.accent; root.querySelectorAll('[data-accent]').forEach(n => n.setAttribute('aria-pressed', n === b)); }
     } catch (error) { fail(error); }
   });
   $('import-text').addEventListener('input', () => { renderSources(); saveDraftSoon(); });
   for (const id of ['pack-name', 'exam-date']) $(id).addEventListener('input', saveDraftSoon);
-  document.querySelectorAll('[name=pack-mode]').forEach(e => e.addEventListener('change', () => { renderPlan(); saveDraftSoon(); }));
+  root.querySelectorAll('[name=pack-mode]').forEach(e => e.addEventListener('change', () => { renderPlan(); saveDraftSoon(); }));
   $('review-rows').addEventListener('input', e => {
     const field = e.target.dataset.field; if (!field) return;
     const row = draft.rows.find(i => i.id === e.target.closest('[data-row]').dataset.row);
@@ -506,7 +700,8 @@
   });
   $('select-all').onchange = () => { draft.rows.forEach(i => { i.enabled = $('select-all').checked; }); renderReview(); saveDraftSoon(); };
   $('add-row').onclick = () => {
-    if (draft.rows.length >= 300) return notice('每个学习包最多 300 条，请另建学习包。');
+    const limit = draft === materialDraft ? 600 : 300;
+    if (draft.rows.length >= limit) return notice(`当前最多 ${limit} 条，请分批整理。`);
     draft.rows.push({ id: C.uid(), kind: 'word', term: '', meaning: '', pos: '', example: '', exampleZh: '', alternatives: [], sources: [], enabled: true, origin: 'manual' }); page = Math.floor((draft.rows.length - 1) / 20); renderReview(); saveDraftSoon();
   };
   $('prev-page').onclick = () => { page--; renderReview(); }; $('next-page').onclick = () => { page++; renderReview(); };
@@ -523,7 +718,32 @@
   $('back-to-sources').onclick=()=>{wizardStep(1);saveDraftSoon();notice('再次整理会按原始资料重新生成预览。已修改的词句，请先复制留存。');};
   $('review-forward').onclick=proceedToPlan;
   $('back-to-review').onclick=()=>{readForm();wizardStep(2);saveDraftSoon();};
-  $('sample').onclick = () => sample().catch(fail);
+  $('save-to-library').onclick = saveMaterials;
+  $('back-to-material-review').onclick = () => { wizardStep(2); saveDraftSoon(); };
+  $('material-deck').onchange = () => {
+    draft.targetDeck = $('material-deck').value;
+    $('material-name-field').hidden = draft.targetDeck !== 'new';
+    saveDraftSoon();
+  };
+  $('material-name').oninput = () => { draft.libraryName = $('material-name').value; saveDraftSoon(); };
+  $('pack-deck').onchange = selectLibrary;
+  $('pack-groups').onchange = updateGroupSelection;
+  $('choose-pack-groups').onclick = createFromLibrary;
+  $('go-add-material').onclick = () => navigate('materials');
+  $('add-more-material').onclick = () => startImport().catch(fail);
+  $('practice-imported-library').onclick = () => navigate('packs');
+  $('open-imported-library').onclick = () => {
+    if (savedLibrary?.deck) L.openDeck(savedLibrary.deck.id);
+    else {
+      navigate('collection');
+      document.querySelector('[data-collection="sentence"]').click();
+    }
+  };
+  $('back-from-workspace').onclick = () => {
+    if (draft === materialDraft) navigate('home');
+    else if (editing) openPack(editing.id);
+    else { showPackPicker(); renderHome(); show('home'); }
+  };
   $('toggle-archived').onclick = () => { archived = !archived; renderHome(); };
   $('backup-all').onclick = () => packs.length ? exportPacks(packs) : notice('还没有学习包可以导出。');
   $('backup-file').onchange = e => { if (e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ''; };
@@ -537,8 +757,31 @@
   $('reveal-answer').onclick = () => checkAnswer(true);
   $('self-correct').onclick = () => selfReview(true); $('self-wrong').onclick = () => selfReview(false); $('next-question').onclick = nextQuestion;
   $('leave-practice').onclick = async () => { if (busy) return; try { await persist(); renderPack(); show('pack'); } catch (error) { fail(error); } };
-  $('library-search').oninput = () => { libraryLimit = 50; renderLibrary(); }; $('library-more').onclick = () => { libraryLimit += 50; renderLibrary(); };
   window.addEventListener('beforeunload', e => { if (ocrBusy || busy) { e.preventDefault(); e.returnValue = ''; } });
   document.addEventListener('visibilitychange', () => { if (document.hidden && view === 'practice' && active && !busy) persist().catch(fail); });
-  refresh().catch(fail);
-})();
+  const ready = refresh().catch(fail);
+  let lastView;
+  return {
+    async open(next) {
+      try {
+        if (lastView === next) {
+          if (next === 'materials' && view === 'saved') await startImport();
+          return;
+        }
+        if (lastView === 'packs' && view === 'practice' && active && !busy) await persist();
+        lastView = next;
+        await ready;
+        if (document.body.dataset.view !== next) return;
+        if (next === 'materials') await startImport();
+        else { showPackPicker(); renderHome(); show('home'); }
+      } catch (error) {
+        fail(error);
+      }
+    },
+    leave() {
+      lastView = undefined;
+      if (view === 'practice' && active && !busy) persist().catch(fail);
+      stopSpeech();
+    },
+  };
+}
