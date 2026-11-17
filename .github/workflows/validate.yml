@@ -1,0 +1,22 @@
+name: Validate learning app
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check changed interface scripts
+        run: |
+          node --check exam-app.js
+          node --check exam-welcome.js
+          node --check exam-entry.js
+          node --check luminous.js
+      - name: Run learning and speech regression checks
+        run: node --test tests/*.cjs

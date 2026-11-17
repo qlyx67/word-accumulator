@@ -27,11 +27,15 @@
   const goalRing = $('.goal-ring');
   const orbitPoint = {x: 0, y: 0};
   let orbitParticles = [];
-  let goalDocumentY = 0;
   let previousScroll = scrollY;
   let separation = 0;
   let scrollMomentum = 0;
   let effectPainted = false;
+
+  function anchorOrbit() {
+    const goal=center(goalRing);
+    artTarget.x=goal.x;artTarget.y=goal.y;
+  }
 
   function layout() {
     width = innerWidth;
@@ -48,7 +52,6 @@
 
     if (view === 'home') {
       const goal = center(goalRing);
-      goalDocumentY = goal.y + scrollY;
       artTarget = {
         x: goal.x,
         y: goal.y,
@@ -242,7 +245,7 @@
     t += dt;
     const scroll = scrollY;
     if (view === 'home') {
-      artTarget.y = goalDocumentY - scroll;
+      anchorOrbit();
       const delta = scroll - previousScroll;
       const energy = Math.min(1, Math.abs(delta) / (dt * 520 || 1));
       separation = Math.max(separation, Math.min(1, Math.abs(delta) / 36) * .86);
@@ -283,9 +286,23 @@
   });
   addEventListener('scroll', () => {
     if (moving() || view !== 'home') return;
-    artTarget.y = goalDocumentY - scrollY;
+    anchorOrbit();
     draw(0);
   }, {passive: true});
+
+  let layoutFrame=0;
+  const syncLayout=()=>{
+    if(layoutFrame)return;
+    layoutFrame=requestAnimationFrame(()=>{
+      layoutFrame=0;layout();
+      if(!moving()){art={...artTarget};draw(0);}
+    });
+  };
+  const homeObserver=new ResizeObserver(syncLayout);
+  homeObserver.observe($('#learning-home'));
+  homeObserver.observe(goalRing);
+  document.fonts?.ready.then(syncLayout);
+  document.addEventListener('studio-layout-changed',syncLayout);
 
   function movePointer(x, y) {
     pointer.x = x;
