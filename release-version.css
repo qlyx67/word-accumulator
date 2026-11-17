@@ -1,0 +1,20 @@
+/* The version stays above the mobile navigation on the main page. */
+.release-version {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 4;
+  padding: 3px 8px;
+  border: 1px solid #a0c9c436;
+  border-radius: 6px;
+  background: #0b1f27f0;
+  color: #bdd3d1;
+  font: 11px/1.5 ui-monospace, monospace;
+  pointer-events: none;
+}
+
+@media (max-width: 800px) {
+  .personal-learning .release-version {
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 76px);
+  }
+}
