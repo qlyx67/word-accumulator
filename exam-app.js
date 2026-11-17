@@ -106,6 +106,7 @@
  return true;
 }
   function proceedToPlan(){
+ if(!editing && !draft.photoReport && draft.sources.some(isOldPhoto)) return notice('请返回「修改资料」重识别旧照片，再重新核对。');
  if(!chosenComplete())return;
  readForm();
  if(!draft.name){
@@ -140,16 +141,24 @@
  $('save-status').textContent='';page=0;show('import');
  wizardStep(draft.rows.length?Math.max(1,Math.min(3,draft.step||2)):1);
 }
-  function renderSources(){
- $('source-list').innerHTML=draft.sources.filter(s=>s.id!=='pasted').map(s=>`<div class="source-file">${s.image?`<img src="${s.image}" alt="资料缩略图">`:''}<span>${esc(s.name)}<span class="state"> · ${s.error?esc(s.error):s.text?'已读取':'待识别'}</span></span><button data-draft-source="${esc(s.id)}">原文</button>${s.error&&s.image?`<button data-retry-source="${esc(s.id)}">重试</button>`:''}<button data-remove-source="${esc(s.id)}" aria-label="移除 ${esc(s.name)}">×</button></div>`).join('');
- const count=draft.sources.filter(s=>s.id!=='pasted').length;
- $('import-summary').textContent=count?`已添加 ${count} 个文件${$('import-text').value.trim()?'，也会一并整理粘贴的文字':''}。识别完成后，点击下一步核对。`:'';
-}
+  function isOldPhoto(source) {
+    return source.image && source.text && source.ocrRevision !== StudyPackPhoto.version;
+  }
+  function renderSources() {
+    const files = draft.sources.filter(source => source.id !== 'pasted');
+    $('source-list').innerHTML = files.map(source => {
+      const state = source.error || (isOldPhoto(source) ? '旧版识别，建议重识别' : '') ||
+        (source.image && source.ocrRows ? '找到 ' + source.ocrRows + ' 个候选词条' : source.text ? '已读取' : '待识别');
+      const retry = source.image ? `<button data-retry-source="${esc(source.id)}" ${ocrBusy ? 'disabled' : ''}>重识别</button>` : '';
+      return `<div class="source-file">${source.image ? `<img src="${source.image}" alt="资料缩略图">` : ''}<span>${esc(source.name)}<span class="state"> · ${esc(state)}</span></span><button data-draft-source="${esc(source.id)}">原文</button>${retry}<button data-remove-source="${esc(source.id)}" aria-label="移除 ${esc(source.name)}" ${ocrBusy ? 'disabled' : ''}>×</button></div>`;
+    }).join('');
+    $('import-summary').textContent = files.length ? `已添加 ${files.length} 个文件${$('import-text').value.trim() ? '，也会一并整理粘贴的文字' : ''}。下一步可核对词条和原图。` : '';
+  }
   async function imageData(file) {
     const url = URL.createObjectURL(file);
     try {
       const img = new Image(); img.src = url; await img.decode();
-      const scale = Math.min(1, 1900 / Math.max(img.naturalWidth, img.naturalHeight));
+      const scale = Math.min(1, 2600 / Math.max(img.naturalWidth, img.naturalHeight));
       const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(img.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
       const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL('image/jpeg', .9);
@@ -166,7 +175,7 @@
       logger: data => {
         if (token !== ocrToken) return;
         $('ocr-meter').value = data.progress || 0;
-        $('ocr-status').textContent = (data.status === 'recognizing text' ? '正在识别文字 ' : '首次准备识别组件 ') + Math.round((data.progress || 0) * 100) + '%';
+        if (data.status !== 'recognizing text') $('ocr-status').textContent = '正在准备识别组件 · ' + Math.round((data.progress || 0) * 100) + '%';
       }
     });
     creation.then(worker => { if (token !== ocrToken) worker.terminate(); }).catch(() => {});
@@ -179,18 +188,30 @@
     ocrBusy = true; const token = ++ocrToken; $('ocr-progress').hidden = false; $('preview').disabled = true;
     $('ocr-status').textContent = '正在准备图片识别，首次使用可能需要一些时间…';
     let worker;
+    renderSources();
     const cancelled = new Promise((_, reject) => { ocrCancel = () => reject(Error('识别已停止，可重试。')); });
     try {
       worker = await Promise.race([loadOCR(token), cancelled]);
       ocrWorker = worker;
-      for (const source of sources) {
+      for (const [index, source] of sources.entries()) {
         if (token !== ocrToken) break;
-        $('ocr-status').textContent = '正在读取 ' + source.name;
+        const status = step => { $('ocr-status').textContent = `第 ${index + 1} / ${sources.length} 张 · ${step}`; };
+        status('正在准备图片');
         try {
-          const result = await Promise.race([timeout(worker.recognize(source.image), 60000, '这张图片识别超时，请裁小后再试。'), cancelled]);
+          const recognize = async canvas => {
+            const result = await Promise.race([
+              timeout(worker.recognize(canvas), 60000, '这张图片识别超时，请裁小后再试。'),
+              cancelled
+            ]);
+            return result.data;
+          };
+          const raw = await StudyPackPhoto.read(worker, source, status, recognize);
           if (token !== ocrToken) break;
-          if (!result.data.text.trim()) throw Error('没有找到文字，请使用清晰的词表截图。');
-          source.text = result.data.text.slice(0, 120000); delete source.error;
+          source.text = raw.slice(0, 120000);
+          source.ocrRevision = StudyPackPhoto.version;
+          source.ocrRows = StudyPackPhoto.extract(source.text, source.id).length;
+          if (source.ocrRows) delete source.error;
+          else source.error = '没找到可用词条。可对照原图，裁到一栏再试或粘贴词表。';
         } catch (e) { source.error = e.message; if (token !== ocrToken) break; }
         renderSources(); saveDraftSoon();
       }
@@ -222,16 +243,36 @@
   async function preview() {
     if (ocrBusy || previewBusy) return;
     readForm();
-    if (!draft.text.trim() && !draft.sources.some(s => s.text.trim())) return notice('请先粘贴词表，或上传一张清晰的资料图片。');
+    if (draft.sources.some(source => isOldPhoto(source) && !source.error)) {
+      await recognizeSources(draft.sources.filter(source => isOldPhoto(source) && !source.error));
+      return notice('重识别完成。请检查各张图片的结果，再点下一步。');
+    }
+    if (!draft.text.trim() && !draft.sources.some(source => source.text.trim())) {
+      return notice(draft.sources.some(source => source.image) ? '图片尚未识别出可用内容，可以重识别，或粘贴词表。' : '请先粘贴词表，或上传一张资料图片。');
+    }
     previewBusy = true; $('preview').disabled = true; $('preview').textContent = '正在整理…';
     try {
       draft.sources = draft.sources.filter(s => s.id !== 'pasted');
       if (draft.text.trim()) draft.sources.unshift({ id: 'pasted', name: '粘贴的文字', text: draft.text, image: '' });
-      const parsed = draft.sources.filter(s => s.text).map(s => C.parse(s.text, s.id));
-      draft.rows = C.dedupe(parsed.flatMap(p => p.rows)).slice(0, 300); draft.skipped = parsed.flatMap(p => p.skipped);
-      if (!draft.rows.length) throw Error('还没有找到英文词句。请检查识别原文，或按示例格式粘贴。');
-      const missing = draft.rows.filter(i => i.kind === 'word' && !i.meaning);
-      await Promise.all(missing.map(async item => { const entry = await WordDictionary.local(item.term); if (entry.meaning) { item.meaning = entry.meaning; item.pos ||= entry.pos; item.origin = 'dictionary'; } }));
+      const parsed = draft.sources.filter(source => !source.image && source.text).map(source => C.parse(source.text, source.id));
+      const photos = draft.sources.filter(source => source.image);
+      const photoRows = C.dedupe(photos.filter(source => source.ocrRevision === StudyPackPhoto.version)
+        .flatMap(source => StudyPackPhoto.extract(source.text, source.id)));
+      const candidates = await Promise.all(photoRows.slice(0, 300).map(item => StudyPackPhoto.verify(item, WordDictionary.local)));
+      const confirmed = candidates.filter(Boolean);
+      const keptSources = new Set(confirmed.flatMap(item => item.sources.map(ref => ref.sourceId)));
+      draft.rows = C.dedupe([...parsed.flatMap(result => result.rows), ...confirmed]).slice(0, 300);
+      draft.skipped = parsed.flatMap(result => result.skipped);
+      draft.photoReport = photos.length ? {
+        skipped: photos.filter(source => !keptSources.has(source.id)).map(source => source.name),
+        filtered: photoRows.length - confirmed.length,
+      } : null;
+      if (!draft.rows.length) throw Error(photos.length ? '照片里没有找到可用词条。请查看原图，试着裁到一栏后重识别，或粘贴整理好的词表。' : '还没有找到英文词句。请按示例格式粘贴。');
+      const missing = draft.rows.filter(item => item.kind === 'word' && !item.meaning);
+      await Promise.all(missing.map(async item => {
+        const entry = await WordDictionary.local(item.term);
+        if (entry.meaning) { item.meaning = entry.meaning.slice(0, 1500); item.pos ||= entry.pos; item.origin = 'dictionary'; }
+      }));
       page = 0; wizardStep(2); saveDraftSoon();
     } catch (error) { fail(error); }
     finally { previewBusy = false; $('preview').disabled = false; $('preview').textContent = '下一步：核对词句 →'; }
@@ -245,12 +286,21 @@
   function renderReview() {
     reviewCounts();
     $('parse-notice').textContent = draft.skipped.length ? `有 ${draft.skipped.length} 处文字未自动转成词条，可在「修改资料」中查看原文。重复的相同词义已合并，原始来源保留。` : '相同词义已去重；同一个词的不同意思会分别保留。请核对释义后勾选。';
-    $('review-rows').innerHTML = draft.rows.slice(page * 20, page * 20 + 20).map((row, i) => `<article class="review-row" data-row="${esc(row.id)}"><div class="row-top"><label class="check"><input type="checkbox" data-field="enabled" ${row.enabled ? 'checked' : ''} aria-label="选择第 ${page * 20 + i + 1} 条"><span class="row-number">${String(page * 20 + i + 1).padStart(2, '0')}</span></label><div class="kind-buttons"><button data-kind="word" aria-pressed="${row.kind === 'word'}">单词／短语</button><button data-kind="sentence" aria-pressed="${row.kind === 'sentence'}">句子</button></div><button class="text-button row-source" data-row-source="${esc(row.id)}">原文 ↗</button></div><div class="row-fields"><label>英文<textarea rows="2" lang="en" data-field="term" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条英文">${esc(row.term)}</textarea></label><label>中文释义／译文<textarea rows="2" data-field="meaning" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条中文">${esc(row.meaning)}</textarea></label></div>${row.origin === 'dictionary' ? '<p class="row-warning">释义由站内词典补充，请选定原文中的意思。</p>' : ''}<details><summary>例句与译文 ${row.example ? '· 已有例句' : '· 可选'}</summary><label class="field">英文例句<textarea rows="2" data-field="example" maxlength="1500" lang="en">${esc(row.example)}</textarea></label><label class="field">例句中文<textarea rows="2" data-field="exampleZh" maxlength="1500">${esc(row.exampleZh)}</textarea></label></details></article>`).join('');
+    if (!editing && !draft.photoReport && draft.sources.some(isOldPhoto)) {
+      $('parse-notice').textContent = '这份草稿使用旧版照片识别。请点「修改资料」，再点「下一步：核对词句」，即可用原图重识别。';
+    } else if (draft.photoReport) {
+      const { skipped, filtered } = draft.photoReport;
+      $('parse-notice').textContent = '请对照原图核对词条。待确认的词头或释义默认不勾选。' +
+        (filtered ? ' 已略过 ' + filtered + ' 条无法核实的候选。' : '') +
+        (skipped.length ? ' 以下图片未提取到可用词条：' + skipped.join('、') + '。' : '');
+    }
+    $('review-rows').innerHTML = draft.rows.slice(page * 20, page * 20 + 20).map((row, i) => `<article class="review-row" data-row="${esc(row.id)}"><div class="row-top"><label class="check"><input type="checkbox" data-field="enabled" ${row.enabled ? 'checked' : ''} aria-label="选择第 ${page * 20 + i + 1} 条"><span class="row-number">${String(page * 20 + i + 1).padStart(2, '0')}</span></label><div class="kind-buttons"><button data-kind="word" aria-pressed="${row.kind === 'word'}">单词／短语</button><button data-kind="sentence" aria-pressed="${row.kind === 'sentence'}">句子</button></div><button class="text-button row-source" data-row-source="${esc(row.id)}">原文 ↗</button></div><div class="row-fields"><label>英文<textarea rows="2" lang="en" data-field="term" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条英文">${esc(row.term)}</textarea></label><label>中文释义／译文<textarea rows="2" data-field="meaning" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条中文">${esc(row.meaning)}</textarea></label></div>${row.origin === 'photo-corrected' ? '<p class="row-warning">词头按例句和词典推测，请确认后勾选。</p>' : row.origin === 'dictionary' ? '<p class="row-warning">释义由站内词典补充，请选定原文中的意思。</p>' : row.origin === 'photo' && !row.enabled ? '<p class="row-warning">识别结果待确认，请对照原文后勾选。</p>' : ''}<details><summary>例句与译文 ${row.example ? '· 已有例句' : '· 可选'}</summary><label class="field">英文例句<textarea rows="2" data-field="example" maxlength="1500" lang="en">${esc(row.example)}</textarea></label><label class="field">例句中文<textarea rows="2" data-field="exampleZh" maxlength="1500">${esc(row.exampleZh)}</textarea></label></details></article>`).join('');
     $('page-label').textContent = `${page + 1} / ${Math.max(1, Math.ceil(draft.rows.length / 20))} 页`;
     $('prev-page').disabled = page === 0; $('next-page').disabled = (page + 1) * 20 >= draft.rows.length;
   }
   async function savePack(){
  if(busy)return;readForm();
+ if(!editing && !draft.photoReport && draft.sources.some(isOldPhoto)) { wizardStep(2); return notice('请返回修改资料，重识别旧照片后再创建学习包。'); }
  if(!draft.name){$('pack-name').focus();return notice('给学习包起一个名称。');}
  if(!C.validDate(draft.examDate)){$('exam-date').focus();return notice('请选择有效的日期。');}
  if(!draft.modes.length)return notice('至少选择一种练习题型。');
@@ -303,7 +353,7 @@
     $('source-title').textContent = row ? row.term.slice(0, 70) : sources[0]?.name || '原始资料';
     $('source-content').innerHTML = sources.map(s => {
       const refs = row?.sources.filter(r => r.sourceId === s.id) || [];
-      return `<section class="source-section"><h3>${esc(s.name)}</h3>${refs.map(r => `<p class="source-excerpt">第 ${r.line} 行 · ${esc(r.excerpt)}</p>`).join('')}${s.image ? `<img class="source-image" src="${s.image}" alt="${esc(s.name)} 的原图">` : ''}<details ${s.image ? '' : 'open'}><summary class="hint">${s.image ? '查看识别文字' : '查看完整原文'}</summary><pre class="source-text">${s.text.split('\n').map((line, i) => refs.some(r => r.line === i + 1) ? '<mark>' + esc(line) + '</mark>' : esc(line)).join('\n')}</pre></details></section>`;
+      return `<section class="source-section"><h3>${esc(s.name)}</h3>${refs.map(r => `<p class="source-excerpt">第 ${r.line} 行 · ${esc(r.excerpt)}</p>`).join('')}${s.image ? `<img class="source-image" src="${s.image}" alt="${esc(s.name)} 的原图">` : ''}<details ${s.image ? '' : 'open'}><summary class="hint">${s.image ? '查看识别文字（可能含误读）' : '查看完整原文'}</summary><pre class="source-text">${s.text.split('\n').map((line, i) => refs.some(r => r.line === i + 1) ? '<mark>' + esc(line) + '</mark>' : esc(line)).join('\n')}</pre></details></section>`;
     }).join('') || '<p class="muted">这条内容由你手动添加。</p>';
     $('source-dialog').showModal();
   }
@@ -440,7 +490,7 @@
       if (b.dataset.rowSource) { const i = draft.rows.find(i => i.id === b.dataset.rowSource); sourceView(i.sources.map(s => s.sourceId), draft, i); }
       if (b.dataset.draftSource) sourceView([b.dataset.draftSource], draft);
       if (b.dataset.removeSource && !ocrBusy) { draft.sources = draft.sources.filter(s => s.id !== b.dataset.removeSource); renderSources(); saveDraftSoon(); }
-      if (b.dataset.retrySource && !ocrBusy) await recognizeSources(draft.sources.filter(s => s.id === b.dataset.retrySource));
+      if (b.dataset.retrySource && !ocrBusy && !previewBusy) await recognizeSources(draft.sources.filter(s => s.id === b.dataset.retrySource));
       if (b.dataset.minutes) { draft.minutes = Number(b.dataset.minutes); document.querySelectorAll('[data-minutes]').forEach(n => n.setAttribute('aria-pressed', n === b)); renderPlan(); saveDraftSoon(); }
       if (b.dataset.kind) { const row = draft.rows.find(i => i.id === b.closest('[data-row]').dataset.row); row.kind = b.dataset.kind; renderReview(); saveDraftSoon(); }
       if (b.dataset.accent) { accent = b.dataset.accent; document.querySelectorAll('[data-accent]').forEach(n => n.setAttribute('aria-pressed', n === b)); }

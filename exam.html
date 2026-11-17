@@ -12,7 +12,9 @@
   <script defer src="exam-bridge.js?v=1"></script>
   <script defer src="word-dictionary.js?v=packs1"></script>
   <script defer src="studio-audio.js?v=localvoice1"></script>
-  <script defer src="exam-app.js?v=welcome3"></script>
+  <script defer src="deck-photo.js?v=3"></script>
+  <script defer src="exam-ocr.js?v=3"></script>
+  <script defer src="exam-app.js?v=photo3"></script>
   <script defer src="exam-welcome.js?v=3"></script>
 </head>
 <body>
@@ -70,7 +72,7 @@
       <div class="steps" aria-label="创建步骤"><span id="step-one" class="active" aria-current="step"><b>1</b> 添加资料</span><i></i><span id="step-two"><b>2</b> 核对词句</span><i></i><span id="step-three"><b>3</b> 开始练习</span></div>
       <div id="import-inputs" class="import-workspace">
         <div class="import-tabs" role="group" aria-label="选择导入方式"><button data-import-mode="image" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m6 16 4-4 4 4 3-2M8 8h.01"/></svg>上传图片 / 文件</button><button data-import-mode="text" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M5 10h14M5 15h9M5 20h6"/></svg>粘贴文字</button></div>
-        <section id="image-input-panel" class="panel input-panel"><label class="drop-zone" id="drop-zone"><span class="upload-illustration" aria-hidden="true"><span class="upload-sheet"><i></i><i></i><i></i></span><span class="upload-circle">↑</span></span><strong>把词表截图放在这里</strong><span>点击选择，或拖入文件 · 支持多图一起导入</span><span class="file-types">JPG / PNG / WebP / TXT / CSV / TSV</span><input id="source-files" type="file" multiple accept="image/jpeg,image/png,image/webp,.txt,.csv,.tsv"></label><div class="import-tip"><span>小提示</span><p>拍清楚英文和中文，裁掉无关区域，识别会更准确。每次最多 10 个文件，每个不超过 12 MB。</p></div><p class="hint">图片在本机识别，首次需下载识别资源；可以随时停止。</p></section>
+        <section id="image-input-panel" class="panel input-panel"><label class="drop-zone" id="drop-zone"><span class="upload-illustration" aria-hidden="true"><span class="upload-sheet"><i></i><i></i><i></i></span><span class="upload-circle">↑</span></span><strong>添加词表截图或课本照片</strong><span>点击选择，或拖入文件 · 支持多图一起导入</span><span class="file-types">JPG / PNG / WebP / TXT / CSV / TSV</span><input id="source-files" type="file" multiple accept="image/jpeg,image/png,image/webp,.txt,.csv,.tsv"></label><div class="import-tip"><span>小提示</span><p>尽量拍正，让整页词表入镜。双栏课本会尝试分栏识别。每次最多 10 个文件，每个不超过 12 MB。</p></div><p class="hint">图片在本机识别，首次需下载识别资源；可以随时停止。</p></section>
         <section id="text-input-panel" class="panel input-panel" hidden><div class="section-head small"><h2>复制进来，就从这里开始。</h2><button class="text-button" id="fill-example">帮我填一个示例</button></div><label class="sr-only" for="import-text">词表或双语句子</label><textarea id="import-text" rows="9" maxlength="120000" placeholder="address | 处理；解决 | We need to address this problem.&#10;capture | 拍摄；记录 | I want to capture the light.&#10;We need more time. | 我们需要更多时间。"></textarea><div class="import-tip"><span>这样写就行</span><p>一行一条，用竖线或制表符分隔。只有英文的单词会尝试补齐释义；句子的中文意思请一起放进来。</p></div></section>
         <div id="source-list" class="source-list"></div><div id="ocr-progress" class="ocr-progress" hidden><span class="working-dot"></span><p id="ocr-status" role="status"></p><progress id="ocr-meter" max="1" value="0"></progress><button class="text-button" id="cancel-ocr">停止识别</button></div><p id="import-summary" class="hint"></p>
       </div>
