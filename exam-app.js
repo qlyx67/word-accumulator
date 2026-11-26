@@ -212,7 +212,14 @@ function StudyPackWorkspace(root) {
         draft.sources, draft.materialId, 'import-' + draft.materialId);
       preferLibrary = savedLibrary.deck?.id || L.sentencesId;
       const message = [];
-      if (savedLibrary.addedWords) message.push(`${savedLibrary.addedWords} 个单词已加入「${savedLibrary.deck.name}」`);
+      if (savedLibrary.deck) {
+        const selectedWords = rows.filter(row => row.kind === 'word').length;
+        const merged = selectedWords - savedLibrary.addedWords;
+        message.push(`「${savedLibrary.deck.name}」新增 ${savedLibrary.addedWords} 个词，当前共 ${savedLibrary.deck.words.length} 个词`);
+        if (merged) message.push(`${merged} 条已合并到相同词头`);
+      }
+      const unchecked = draft.rows.length - rows.length;
+      if (unchecked) message.push(`${unchecked} 条未勾选，未导入`);
       if (savedLibrary.addedSentences) message.push(`${savedLibrary.addedSentences} 个句子已加入「已添加」`);
       $('library-saved-message').textContent = message.length ? message.join('，') + '。' : '所选词句已经在词库里。';
       $('open-imported-library').textContent = savedLibrary.deck ? '开始背这套单词' : '查看已添加的句子';
@@ -488,7 +495,6 @@ function StudyPackWorkspace(root) {
     if (!readable.length) return notice('请先上传照片或粘贴文字。');
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort('timeout'), 150000);
     cloudRequest = controller;
     previewBusy = true;
     $('deepseek-forget').disabled = true;
@@ -499,22 +505,53 @@ function StudyPackWorkspace(root) {
     work.aiUsage = undefined;
     renderDeepSeekUsage();
     try {
-      const content = await DeepSeekImport.request(readable, key, controller.signal, usage => {
-        if (controller.signal.aborted || draft !== work) return;
-        if (typedKey && writeSetting(deepSeekKeyStorage, typedKey)) $('deepseek-key').value = '';
-        work.aiUsage = usage;
-        renderDeepSeekUsage(usage);
-        saveDraftSoon();
-      });
-      if (controller.signal.aborted || draft !== work || document.body.dataset.view !== 'materials') return;
-      const { rows, limited, filtered } = DeepSeekImport.parseRows(content, readable, C, termPattern);
-      if (!rows.length) throw Error('DeepSeek 没找到可用词条。可以把页面裁小后再试。');
-      const matched = new Set(rows.flatMap(row => row.sources.map(ref => ref.sourceId)));
+      const collected = [];
+      const coverage = [];
+      let filtered = 0, limited = false, missingUsage = false;
+      for (const [index, source] of readable.entries()) {
+        if (controller.signal.aborted || draft !== work || document.body.dataset.view !== 'materials') return;
+        $('preview').textContent = `DeepSeek 正在识别 ${index + 1} / ${readable.length}`;
+        $('deepseek-progress').textContent = `正在处理：${source.name}`;
+        const timer = setTimeout(() => controller.abort('timeout'), 150000);
+        try {
+          const content = await DeepSeekImport.request([source], key, controller.signal, usage => {
+            if (controller.signal.aborted || draft !== work) return;
+            if (typedKey && writeSetting(deepSeekKeyStorage, typedKey)) $('deepseek-key').value = '';
+            missingUsage ||= !usage;
+            work.aiUsage = DeepSeekImport.combineUsage(work.aiUsage, usage);
+            renderDeepSeekUsage(work.aiUsage);
+            saveDraftSoon();
+          });
+          const result = DeepSeekImport.parseRows(content, [source], C, termPattern);
+          collected.push(...result.rows);
+          filtered += result.filtered;
+          limited ||= result.limited;
+          coverage.push({ name: source.name, count: result.rows.length });
+        } catch (error) {
+          if (controller.signal.aborted || error.stopBatch || [401, 402, 403, 429].includes(error.status)) {
+            if (!collected.length) throw error;
+            coverage.push({ name: source.name, count: 0, error: controller.signal.aborted ? '已中止' : error.message });
+            for (const pending of readable.slice(index + 1)) coverage.push({ name: pending.name, count: 0, error: '未处理' });
+            missingUsage ||= controller.signal.aborted || Boolean(error.stopBatch);
+            break;
+          }
+          coverage.push({ name: source.name, count: 0, error: error.message });
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      if (draft !== work || document.body.dataset.view !== 'materials') return;
+      const unique = C.dedupe([...collected.filter(row => row.enabled), ...collected.filter(row => !row.enabled)]);
+      const rows = unique.slice(0, 600);
+      if (!rows.length) {
+        if (coverage.some(entry => entry.error)) throw Error(coverage.filter(entry => entry.error).map(entry => entry.name + '：' + entry.error).join('；'));
+        throw Error('DeepSeek 没找到可用词条。可以把页面裁小后再试。');
+      }
       work.sources = sources;
       work.rows = rows;
       work.skipped = [];
       work.photoReport = null;
-      work.aiReport = { limited, filtered, skipped: readable.filter(source => !matched.has(source.id)).map(source => source.name) };
+      work.aiReport = { limited: limited || unique.length > 600, filtered, coverage, missingUsage };
       page = 0;
       wizardStep(2);
       saveDraftSoon();
@@ -526,7 +563,7 @@ function StudyPackWorkspace(root) {
       }
       fail(error);
     } finally {
-      clearTimeout(timer);
+      $('deepseek-progress').textContent = '';
       cloudRequest = null;
       previewBusy = false;
       $('preview').disabled = $('recognition-method').disabled = $('deepseek-key').disabled = false;
@@ -587,17 +624,30 @@ function StudyPackWorkspace(root) {
   }
   function reviewCounts() {
     const chosen = draft.rows.filter(i => i.enabled);
-    $('review-summary').textContent = `共 ${draft.rows.length} 条 · 已选 ${chosen.filter(i => i.kind === 'word').length} 个词／短语、${chosen.filter(i => i.kind === 'sentence').length} 个句子`;
+    const words = chosen.filter(i => i.kind === 'word');
+    const uniqueWords = new Set(words.map(row => C.normalize(row.term))).size;
+    const unchecked = draft.rows.length - chosen.length;
+    const merged = words.length - uniqueWords;
+    $('review-summary').textContent = `共 ${draft.rows.length} 条候选 · 未勾选 ${unchecked} 条 · 已选 ${words.length} 条词义，合为 ${uniqueWords} 个词头 · 另选 ${chosen.length - words.length} 个句子` +
+      (merged ? `（${merged} 条同词头合并）` : '');
     $('chosen-summary').textContent = `已选 ${chosen.length} 条 · ${draft === materialDraft ? '下一步选择词库' : '下一步设置练习'}`;
     $('select-all').checked = chosen.length === draft.rows.length; $('select-all').indeterminate = chosen.length > 0 && chosen.length < draft.rows.length;
   }
   function renderReview() {
     reviewCounts();
     $('parse-notice').textContent = draft.skipped.length ? `有 ${draft.skipped.length} 处文字未自动转成词条，可在「修改资料」中查看原文。重复的相同词义已合并，原始来源保留。` : '相同词义已去重；同一个词的不同意思会分别保留。请核对释义后勾选。';
+    renderDeepSeekUsage(draft.aiUsage);
     $('deepseek-review-usage').hidden = !draft.aiReport || draft.aiUsage === undefined;
+    $('deepseek-coverage').hidden = !draft.aiReport?.coverage?.length;
+    $('deepseek-page-counts').replaceChildren(...(draft.aiReport?.coverage || []).map(entry => {
+      const item = document.createElement('li');
+      item.textContent = entry.name + ' · ' + (entry.error || (entry.count ? entry.count + ' 条候选' : '未找到词条'));
+      return item;
+    }));
     if (draft.aiReport) {
-      const { limited, filtered, skipped } = draft.aiReport;
+      const { limited, filtered, skipped = [], missingUsage } = draft.aiReport;
       $('parse-notice').textContent = '这是 DeepSeek 提取的结果。请核对词头和释义，缺释义或不确定的词条默认不勾选。' +
+        (missingUsage ? ' 部分请求未返回用量，费用只统计已收到的回执。' : '') +
         (limited ? ' 本批已达到条目上限，可分批识别剩余资料。' : '') +
         (filtered ? ` 已略过 ${filtered} 条格式不完整的候选。` : '') +
         (skipped.length ? ' 以下资料未提取到可用词条：' + skipped.join('、') + '。' : '');

@@ -56,3 +56,28 @@ test('only valid source references enter review and uncertain or incomplete rows
   assert.equal(result.rows[1].sources[0].excerpt, 'heal 治愈');
   assert.equal(result.rows[2].enabled, false);
 });
+
+test('textbook placeholders survive vocabulary validation and each photo keeps its own source', () => {
+  const adapter = load();
+  const pattern = /^[A-Za-z]+(?:[ '\u2019-][A-Za-z]+)*$/;
+  const photos = [{id:'168',image:'sample'}, {id:'172',image:'sample'}];
+  const pages = [
+    [{term:'fill (sb.) up',meaning:'使吃饱'}, {term:'call for sth.',meaning:'需要'}],
+    [{term:'be far removed from sth.',meaning:'与……相去甚远'}, {term:'next to',meaning:'紧接'}],
+  ];
+  const rows = pages.flatMap((page, i) => adapter.parseRows(JSON.stringify({
+    rows: page.map(row => ({...row, source:1, kind:'word', uncertain:false})),
+  }), [photos[i]], core, pattern).rows);
+  assert.deepEqual(Array.from(rows, row => row.term), ['fill somebody up','call for something','be far removed from something','next to']);
+  assert.deepEqual(Array.from(rows, row => row.sources[0].sourceId), ['168','168','172','172']);
+  assert.ok(rows.every(row => row.enabled));
+});
+
+test('usage totals aggregate all page responses without dropping a prior receipt', () => {
+  const adapter = load();
+  const page = adapter.usageOf({prompt_tokens:1200,completion_tokens:500,prompt_cache_hit_tokens:200});
+  const total = adapter.combineUsage(adapter.combineUsage(page, null), page);
+  assert.equal(total.total,3400);
+  assert.equal(total.cached,400);
+  assert.equal(total.high,page.high * 2);
+});
