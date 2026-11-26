@@ -169,16 +169,16 @@ function StudyPackWorkspace(root) {
     $('word-destination').hidden = !words;
     $('sentence-destination').hidden = !sentences;
     const options = [
+      new Option('新建独立词库（推荐）', 'new'),
       new Option('收藏单词', L.collectionId),
-      new Option('新建词库', 'new'),
       ...L.catalog().filter(deck => deck.id && deck.words && deck.id !== L.collectionId)
         .map(deck => new Option(deck.name, deck.id)),
     ];
     $('material-deck').replaceChildren(...options);
     const suggested = draft.sources.find(source => source.id !== 'pasted')?.name.replace(/\.[^.]+$/, '').slice(0, 80);
-    const preferred = draft.targetDeck ?? (suggested ? 'new' : L.collectionId);
-    $('material-deck').value = options.some(option => option.value === preferred) ? preferred : L.collectionId;
-    $('material-name').value = draft.libraryName ?? suggested ?? '';
+    const preferred = draft.targetDeck ?? 'new';
+    $('material-deck').value = options.some(option => option.value === preferred) ? preferred : 'new';
+    $('material-name').value = draft.libraryName ?? suggested ?? ('我的词库 · ' + new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
     $('material-name-field').hidden = $('material-deck').value !== 'new';
   }
 
@@ -196,6 +196,8 @@ function StudyPackWorkspace(root) {
       if (savedLibrary.addedWords) message.push(`${savedLibrary.addedWords} 个单词已加入「${savedLibrary.deck.name}」`);
       if (savedLibrary.addedSentences) message.push(`${savedLibrary.addedSentences} 个句子已加入「已添加」`);
       $('library-saved-message').textContent = message.length ? message.join('，') + '。' : '所选词句已经在词库里。';
+      $('open-imported-library').textContent = savedLibrary.deck ? '开始背这套单词' : '查看已添加的句子';
+      $('browse-imported-library').hidden = !savedLibrary.deck;
       clearTimeout(draftTimer);
       await draftWrites.catch(() => {});
       try {
@@ -517,7 +519,7 @@ function StudyPackWorkspace(root) {
   function renderPack() {
     const p = active, plan = C.plan(p), selected = p.items.filter(i => i.enabled);
     const newCount = plan.selected.filter(t => !p.progress[t.key]).length;
-    $('pack-detail').innerHTML = `<button class="back-link" data-go="home">← 返回学习包</button><div class="pack-header"><div><span class="badge">${deadline(p)}</span><h1>${esc(p.name)}</h1><p class="muted">${selected.filter(i => i.kind === 'word').length} 个词／短语 · ${selected.filter(i => i.kind === 'sentence').length} 个句子 · 每天 ${p.minutes} 分钟</p></div><div class="actions"><button data-action="edit">调整内容与计划</button>${p.fromLibrary ? '' : '<button data-action="copy-library">将词句加入词库</button>'}<button data-action="export">导出</button><button data-action="archive">${p.archived ? '恢复到学习中' : '归档'}</button></div></div><div class="detail-grid"><section class="panel today-panel"><p class="eyebrow">今天的小目标</p><h2>${plan.selected.length ? '今天先练 ' + Math.min(10, plan.selected.length) + ' 题。' : plan.doneToday ? '今天已经留下积累。' : '按自己的节奏练习。'}</h2><p class="muted">${plan.selected.length ? `先复习到期内容，再练 ${newCount} 道新题。每轮最多 10 题，做完再继续。` : plan.capacity === 0 ? '已达到今天设置的练习量。也可以选择下方题型，继续巩固。' : '暂时没有到期任务。可以选择下方题型提前练习。'}</p><div class="plan-stats"><div><strong>${plan.selected.length}</strong><span>今日待练</span></div><div><strong>${plan.due}</strong><span>到期题目</span></div><div><strong>${plan.doneToday}</strong><span>今日已练</span></div></div><div class="actions">${unfinished(p) ? '<button class="primary" data-action="resume">继续上次练习 →</button>' : `<button class="primary" data-start="today" ${!plan.selected.length ? 'disabled' : ''}>开始今日练习 →</button>`}</div>${plan.overload ? '<p class="hint">按当前时间可能无法完成全部待练内容。可以增加每日时间，或缩小本次学习范围。</p>' : ''}</section><section class="panel"><p class="eyebrow">看见自己的进步</p><h2>会认、会听，也要会表达。</h2><div class="skills">${C.MODES.map(mode => { const s = stats(p, mode); return `<div class="skill"><p>${C.labels[mode]}</p><strong>${s.passed}</strong><small> / ${s.total} 通过</small><progress value="${s.passed}" max="${s.total || 1}" aria-label="${C.labels[mode]}通过进度"></progress></div>`; }).join('')}</div><p class="hint">显示最近一次练习结果；翻译自评会标记。通过一遍后，仍会安排间隔复习。</p></section></div><div class="section-head"><h2>按题型练习</h2><span class="muted">也可以单独补薄弱项</span></div><div class="practice-options">${C.MODES.map(mode => { const n = C.tasks(p).filter(t => t.mode === mode).length; return `<button class="practice-option" data-start="${mode}" ${!n ? 'disabled' : ''}><strong>${C.labels[mode]} ↗</strong><small>${n ? n + ' 道 · ' + ({cloze:'看意思，回忆完整拼写',listen:'听发音，写出单词','en-zh':'读英文，写出中文意思','zh-en':'看中文，用英文表达'}[mode]) : '暂无已选内容'}</small></button>`; }).join('')}</div>${p.sources.length ? `<section class="panel"><h3>原始资料</h3><div class="source-chips">${p.sources.map(s => `<button data-source="${esc(s.id)}">▤ ${esc(s.name)} ↗</button>`).join('')}</div></section>` : ''}<section class="pack-entries"><div class="section-head"><h2>本次学习内容</h2><span class="muted">${selected.length} 条</span></div>${selected.slice(0, 30).map(i => entryHTML(i, p)).join('')}${selected.length > 30 ? `<details><summary>查看其余 ${selected.length - 30} 条</summary>${selected.slice(30).map(i => entryHTML(i, p)).join('')}</details>` : ''}</section>`;
+    $('pack-detail').innerHTML = `<button class="back-link" data-go="home">← 返回学习包</button><div class="pack-header"><div><span class="badge">${deadline(p)}</span><h1>${esc(p.name)}</h1><p class="muted">${selected.filter(i => i.kind === 'word').length} 个词／短语 · ${selected.filter(i => i.kind === 'sentence').length} 个句子 · 每天 ${p.minutes} 分钟</p></div><div class="actions">${selected.some(i => i.kind === 'word') ? '<button data-action="study-library">背这套单词</button>' : ''}<button data-action="edit">调整内容与计划</button>${p.fromLibrary ? '' : '<button data-action="copy-library">将词句加入词库</button>'}<button data-action="export">导出</button><button data-action="archive">${p.archived ? '恢复到学习中' : '归档'}</button></div></div><div class="detail-grid"><section class="panel today-panel"><p class="eyebrow">今天的小目标</p><h2>${plan.selected.length ? '今天先练 ' + Math.min(10, plan.selected.length) + ' 题。' : plan.doneToday ? '今天已经留下积累。' : '按自己的节奏练习。'}</h2><p class="muted">${plan.selected.length ? `先复习到期内容，再练 ${newCount} 道新题。每轮最多 10 题，做完再继续。` : plan.capacity === 0 ? '已达到今天设置的练习量。也可以选择下方题型，继续巩固。' : '暂时没有到期任务。可以选择下方题型提前练习。'}</p><div class="plan-stats"><div><strong>${plan.selected.length}</strong><span>今日待练</span></div><div><strong>${plan.due}</strong><span>到期题目</span></div><div><strong>${plan.doneToday}</strong><span>今日已练</span></div></div><div class="actions">${unfinished(p) ? '<button class="primary" data-action="resume">继续上次练习 →</button>' : `<button class="primary" data-start="today" ${!plan.selected.length ? 'disabled' : ''}>开始今日练习 →</button>`}</div>${plan.overload ? '<p class="hint">按当前时间可能无法完成全部待练内容。可以增加每日时间，或缩小本次学习范围。</p>' : ''}</section><section class="panel"><p class="eyebrow">看见自己的进步</p><h2>会认、会听，也要会表达。</h2><div class="skills">${C.MODES.map(mode => { const s = stats(p, mode); return `<div class="skill"><p>${C.labels[mode]}</p><strong>${s.passed}</strong><small> / ${s.total} 通过</small><progress value="${s.passed}" max="${s.total || 1}" aria-label="${C.labels[mode]}通过进度"></progress></div>`; }).join('')}</div><p class="hint">显示最近一次练习结果；翻译自评会标记。通过一遍后，仍会安排间隔复习。</p></section></div><div class="section-head"><h2>按题型练习</h2><span class="muted">也可以单独补薄弱项</span></div><div class="practice-options">${C.MODES.map(mode => { const n = C.tasks(p).filter(t => t.mode === mode).length; return `<button class="practice-option" data-start="${mode}" ${!n ? 'disabled' : ''}><strong>${C.labels[mode]} ↗</strong><small>${n ? n + ' 道 · ' + ({cloze:'看意思，回忆完整拼写',listen:'听发音，写出单词','en-zh':'读英文，写出中文意思','zh-en':'看中文，用英文表达'}[mode]) : '暂无已选内容'}</small></button>`; }).join('')}</div>${p.sources.length ? `<section class="panel"><h3>原始资料</h3><div class="source-chips">${p.sources.map(s => `<button data-source="${esc(s.id)}">▤ ${esc(s.name)} ↗</button>`).join('')}</div></section>` : ''}<section class="pack-entries"><div class="section-head"><h2>本次学习内容</h2><span class="muted">${selected.length} 条</span></div>${selected.slice(0, 30).map(i => entryHTML(i, p)).join('')}${selected.length > 30 ? `<details><summary>查看其余 ${selected.length - 30} 条</summary>${selected.slice(30).map(i => entryHTML(i, p)).join('')}</details>` : ''}</section>`;
   }
   function entryHTML(i, p) {
     const trained = C.MODES.filter(mode => p.progress[C.taskKey(i, mode)]?.attempts);
@@ -647,6 +649,16 @@ function StudyPackWorkspace(root) {
       renderHome(); show('home'); notice('导入完成，原有学习包未被覆盖。');
     } catch (error) { fail(error); }
   }
+  async function studyPackWords() {
+    if (busy || !active) return;
+    busy = true;
+    try {
+      const result = await L.deckForPack(active);
+      L.openDeck(result.deck.id, 'study');
+    } catch (error) { fail(error); }
+    finally { busy = false; }
+  }
+
   async function copyOldPack() {
     if (busy || !active) return;
     const previous = active;
@@ -674,6 +686,7 @@ function StudyPackWorkspace(root) {
       if(b.dataset.continuePack){openPack(b.dataset.continuePack);if(unfinished(active))await startPractice('today',true);else if(C.plan(active).selected.length)await startPractice('today');}
       if(b.dataset.importMode){setImportMode(b.dataset.importMode);saveDraftSoon();}
       if (b.dataset.start) await startPractice(b.dataset.start);
+      if (b.dataset.action === 'study-library') await studyPackWords();
       if (b.dataset.action === 'copy-library') await copyOldPack();
       if (b.dataset.action === 'edit' && !ocrBusy && !previewBusy && !busy) editPack();
       if (b.dataset.action === 'resume') await startPractice('today', true);
@@ -732,8 +745,11 @@ function StudyPackWorkspace(root) {
   $('go-add-material').onclick = () => navigate('materials');
   $('add-more-material').onclick = () => startImport().catch(fail);
   $('practice-imported-library').onclick = () => navigate('packs');
-  $('open-imported-library').onclick = () => {
+  $('browse-imported-library').onclick = () => {
     if (savedLibrary?.deck) L.openDeck(savedLibrary.deck.id);
+  };
+  $('open-imported-library').onclick = () => {
+    if (savedLibrary?.deck) L.openDeck(savedLibrary.deck.id, 'study');
     else {
       navigate('collection');
       document.querySelector('[data-collection="sentence"]').click();

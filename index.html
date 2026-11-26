@@ -44,8 +44,8 @@
 <script defer src="exam-core.js?v=library1"></script>
 <script defer src="exam-store.js?v=1"></script>
 <script defer src="exam-ocr.js?v=3"></script>
-<script defer src="vocabulary-library.js?v=1"></script>
-<script defer src="exam-app.js?v=library1"></script>
+<script defer src="vocabulary-library.js?v=2"></script>
+<script defer src="exam-app.js?v=library2"></script>
 <script defer src="exam-entry.js?v=library1"></script>
   <link rel="stylesheet" href="release-version.css?v=2.2.0">
 </head>
@@ -83,10 +83,12 @@
       <div class="storage-strip"><p>学习包与练习进度保存在此浏览器。</p><button class="text-button" id="backup-all">导出学习包</button><label class="text-button file-label">导入学习包备份<input id="backup-file" type="file" accept=".json,application/json"></label></div>
     </section>
     <section id="view-saved" class="view" hidden>
-      <h1>已保存到词库</h1>
+      <h1>词库准备好了</h1>
+      <p class="hint">在顶部「学习词库」可随时切换，和雅思词汇一样练背词卡、配对和拼写。每套词库独立保存进度。</p>
       <p class="muted pack-intro" id="library-saved-message" role="status"></p>
       <div class="actions">
-        <button class="primary" id="open-imported-library">查看词库 →</button>
+        <button class="primary" id="open-imported-library">开始背这套单词</button>
+        <button id="browse-imported-library">查看这套词库</button>
         <button id="practice-imported-library">去学习包选组</button>
         <button id="add-more-material">继续添加</button>
       </div>
@@ -375,5 +377,5 @@
 </dialog>
 <footer>词头按雅思词汇 PDF 的 22 个主题整理。站内释义与音标来自 <a href="https://github.com/skywind3000/ECDICT">ECDICT</a>（<a href="ECDICT-LICENSE.txt">MIT</a>），查词数据经 <a href="https://github.com/imfiiish/wordlists">Wordlists</a> 整理（<a href="dictionary/LICENSE.txt">MIT</a>）。部分例句来自 <a href="https://tatoeba.org/">Tatoeba</a>（<a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a>），示例词录音来自 <a href="dictionary/audio/LICENSE.txt">Endict</a>。星星保存在当前浏览器。</footer>
 </main></div>
-  <span class="release-version">版本 v2.2.0</span>
+  <span class="release-version">版本 v2.2.1</span>
 </body></html>

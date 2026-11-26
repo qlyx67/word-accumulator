@@ -170,8 +170,16 @@ const VocabularyLibrary = (() => {
     return { deck, addedWords, addedSentences };
   }
 
-  function openDeck(id) {
-    if (id === collectionId) {
+  async function deckForPack(pack) {
+    const rows = pack.items.filter(row => row.enabled && row.kind === 'word' && termPattern.test(row.term));
+    if (!rows.length) throw Error('这份学习包没有可背的单词或短语。');
+    // Stable per-pack identity makes reopening safe and keeps normal study progress.
+    const id = 'pack-' + pack.id;
+    return save(rows, 'new', pack.name, pack.sources || [], id, id);
+  }
+
+  function openDeck(id, view = 'browse') {
+    if (id === collectionId && view === 'browse') {
       if (activeDeck?.id !== id) {
         document.dispatchEvent(new CustomEvent('studio-navigate', { detail: 'collection' }));
         document.querySelector('[data-collection="word"]').click();
@@ -179,10 +187,10 @@ const VocabularyLibrary = (() => {
       }
     }
     localStorage.setItem(deckSelectionKey, id);
-    try { sessionStorage.setItem('word-accumulator.next-view', 'browse'); } catch {}
+    try { sessionStorage.setItem('word-accumulator.next-view', view === 'study' ? 'study' : 'browse'); } catch {}
     history.replaceState(null, '', location.pathname + location.search);
     location.reload();
   }
 
-  return { catalog, groups, buildRows, save, openDeck, sentencesId, collectionId };
+  return { catalog, groups, buildRows, save, deckForPack, openDeck, sentencesId, collectionId };
 })();
