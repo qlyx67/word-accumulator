@@ -9,6 +9,7 @@ function StudyPackWorkspace(root) {
   const clone = x => JSON.parse(JSON.stringify(x));
   let packs = [], active, draft, editing, page = 0, view = 'home', archived = false, busy = false;
   let noticeTimer, draftTimer, draftWrites = Promise.resolve(), ocrWorker, ocrCancel, ocrToken = 0, ocrBusy = false, previewBusy = false;
+  let cloudRequest;
   let accent = 'en-US';
   const unfinished = p => p.session && p.session.index < p.session.tasks.length;
   const defaultDate = () => C.day(Date.now() + 7 * 86400000);
@@ -76,6 +77,9 @@ function StudyPackWorkspace(root) {
  $('import-text').value = draft.text; $('pack-name').value = draft.name; $('exam-date').value = draft.examDate;
  root.querySelectorAll('[data-minutes]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.minutes)===draft.minutes));
  root.querySelectorAll('[name=pack-mode]').forEach(e=>{e.checked=draft.modes.includes(e.value);e.disabled=false;e.closest('label').classList.remove('unavailable');});
+ $('recognition-method').value = draft.recognitionMethod === 'deepseek' ? 'deepseek' : 'local';
+ renderRecognitionMethod();
+ renderDeepSeekUsage(draft.aiUsage);
  setImportMode(draft.importMode || (draft.text?'text':'image')); renderSources();
 }
   function setImportMode(mode){
@@ -131,7 +135,7 @@ function StudyPackWorkspace(root) {
 }
   function proceedToPlan() {
     if (draft === materialDraft) {
-      if (!draft.photoReport && draft.sources.some(isOldPhoto)) {
+      if (!draft.aiReport && !draft.photoReport && draft.sources.some(isOldPhoto)) {
         return notice('请返回「修改资料」，重识别旧照片后再核对。');
       }
       const selected = draft.rows.filter(row => row.enabled);
@@ -318,7 +322,7 @@ function StudyPackWorkspace(root) {
     $('source-list').innerHTML = files.map(source => {
       const state = source.error || (isOldPhoto(source) ? '旧版识别，建议重识别' : '') ||
         (source.image && source.ocrRows ? '找到 ' + source.ocrRows + ' 个候选词条' : source.text ? '已读取' : '待识别');
-      const retry = source.image ? `<button data-retry-source="${esc(source.id)}" ${ocrBusy ? 'disabled' : ''}>重识别</button>` : '';
+      const retry = source.image && !usesDeepSeek() ? `<button data-retry-source="${esc(source.id)}" ${ocrBusy ? 'disabled' : ''}>重识别</button>` : '';
       return `<div class="source-file">${source.image ? `<img src="${source.image}" alt="资料缩略图">` : ''}<span>${esc(source.name)}<span class="state"> · ${esc(state)}</span></span><button data-draft-source="${esc(source.id)}">原文</button>${retry}<button data-remove-source="${esc(source.id)}" aria-label="移除 ${esc(source.name)}" ${ocrBusy ? 'disabled' : ''}>×</button></div>`;
     }).join('');
     $('import-summary').textContent = files.length ? `已添加 ${files.length} 个文件${$('import-text').value.trim() ? '，也会一并整理粘贴的文字' : ''}。下一步可核对词条和原图。` : '';
@@ -422,11 +426,98 @@ function StudyPackWorkspace(root) {
     previewBusy = false;
     $('preview').disabled = false;
     renderSources(); saveDraftSoon();
-    await recognizeSources(images);
+    if (!usesDeepSeek()) await recognizeSources(images);
   }
+  const usesDeepSeek = () => $('recognition-method').value === 'deepseek';
+
+  function renderRecognitionMethod() {
+    const cloud = usesDeepSeek();
+    $('deepseek-settings').hidden = !cloud;
+    $('image-recognition-note').textContent = cloud ? '可以一次添加多张照片。点击「用 DeepSeek 识别」才会发送资料。' :
+      '本机识别首次需下载识别资源，可以随时停止。';
+    $('preview').textContent = cloud ? '用 DeepSeek 识别' : '下一步：核对词句 →';
+    if (!cloud) $('deepseek-key').value = '';
+  }
+
+  function renderDeepSeekUsage(usage) {
+    const format = value => value.toLocaleString('zh-CN');
+    const yuan = value => value > 0 && value < 0.000001 ? '不到 ¥0.000001' : '¥' + value.toFixed(6);
+    const label = usage ? `本次 DeepSeek · 输入 ${format(usage.input)}、输出 ${format(usage.output)}，共 ${format(usage.total)} token` +
+      (usage.cached === null ? '（缓存用量未返回）' : `（缓存命中 ${format(usage.cached)}）`) +
+      ` · 估算 ${yuan(usage.low)} 至 ${yuan(usage.high)}，以 DeepSeek 账单为准。` :
+      usage === null ? '本次 DeepSeek 未返回 token 用量，费用请查看 DeepSeek 账单。' : '';
+    $('deepseek-usage').textContent = $('deepseek-review-usage').textContent = label;
+    $('deepseek-usage').hidden = $('deepseek-review-usage').hidden = !label;
+  }
+
+  async function previewWithDeepSeek() {
+    const key = $('deepseek-key').value.trim();
+    if (!key) {
+      $('deepseek-key').focus();
+      return notice('请先填写你的 DeepSeek API Key。');
+    }
+    const work = draft;
+    const pasted = { id: 'pasted', name: '粘贴的文字', text: work.text, image: '' };
+    const sources = work.sources.filter(source => source.id !== 'pasted');
+    if (pasted.text.trim()) sources.unshift(pasted);
+    const readable = sources.filter(source => source.image || source.text.trim());
+    if (!readable.length) return notice('请先上传照片或粘贴文字。');
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort('timeout'), 150000);
+    cloudRequest = controller;
+    previewBusy = true;
+    $('deepseek-key').value = '';
+    $('preview').disabled = $('recognition-method').disabled = $('deepseek-key').disabled = true;
+    $('import-text').readOnly = true;
+    $('deepseek-cancel').hidden = false;
+    $('preview').textContent = 'DeepSeek 正在识别…';
+    work.aiUsage = undefined;
+    renderDeepSeekUsage();
+    try {
+      const content = await DeepSeekImport.request(readable, key, controller.signal, usage => {
+        if (controller.signal.aborted || draft !== work) return;
+        work.aiUsage = usage;
+        renderDeepSeekUsage(usage);
+        saveDraftSoon();
+      });
+      if (controller.signal.aborted || draft !== work || document.body.dataset.view !== 'materials') return;
+      const { rows, limited, filtered } = DeepSeekImport.parseRows(content, readable, C, termPattern);
+      if (!rows.length) throw Error('DeepSeek 没找到可用词条。可以把页面裁小后再试。');
+      const matched = new Set(rows.flatMap(row => row.sources.map(ref => ref.sourceId)));
+      work.sources = sources;
+      work.rows = rows;
+      work.skipped = [];
+      work.photoReport = null;
+      work.aiReport = { limited, filtered, skipped: readable.filter(source => !matched.has(source.id)).map(source => source.name) };
+      page = 0;
+      wizardStep(2);
+      saveDraftSoon();
+    } catch (error) {
+      if (draft !== work || document.body.dataset.view !== 'materials') return;
+      if (controller.signal.aborted) {
+        return notice((controller.signal.reason === 'timeout' ? '识别等待超时。' : '已停止等待。') +
+          '若 DeepSeek 已处理请求，仍可能计费，请以账单为准。', true);
+      }
+      fail(error);
+    } finally {
+      clearTimeout(timer);
+      cloudRequest = null;
+      previewBusy = false;
+      $('preview').disabled = $('recognition-method').disabled = $('deepseek-key').disabled = false;
+      $('import-text').readOnly = false;
+      $('deepseek-cancel').hidden = true;
+      renderRecognitionMethod();
+    }
+  }
+
   async function preview() {
     if (ocrBusy || previewBusy || draft !== materialDraft) return;
     readForm();
+    if (usesDeepSeek()) return previewWithDeepSeek();
+    const pending = draft.sources.filter(source => source.image && !source.text && !source.error);
+    if (pending.length) await recognizeSources(pending);
+    if (draft !== materialDraft || document.body.dataset.view !== 'materials') return;
     if (draft.sources.some(source => isOldPhoto(source) && !source.error)) {
       await recognizeSources(draft.sources.filter(source => isOldPhoto(source) && !source.error));
       return notice('重识别完成。请检查各张图片的结果，再点下一步。');
@@ -446,6 +537,7 @@ function StudyPackWorkspace(root) {
       const confirmed = candidates.filter(Boolean);
       const keptSources = new Set(confirmed.flatMap(item => item.sources.map(ref => ref.sourceId)));
       draft.rows = C.dedupe([...parsed.flatMap(result => result.rows), ...confirmed]).slice(0, 600);
+      draft.aiReport = null;
       draft.skipped = parsed.flatMap(result => result.skipped);
       draft.photoReport = photos.length ? {
         skipped: photos.filter(source => !keptSources.has(source.id)).map(source => source.name),
@@ -476,7 +568,14 @@ function StudyPackWorkspace(root) {
   function renderReview() {
     reviewCounts();
     $('parse-notice').textContent = draft.skipped.length ? `有 ${draft.skipped.length} 处文字未自动转成词条，可在「修改资料」中查看原文。重复的相同词义已合并，原始来源保留。` : '相同词义已去重；同一个词的不同意思会分别保留。请核对释义后勾选。';
-    if (!editing && !draft.photoReport && draft.sources.some(isOldPhoto)) {
+    $('deepseek-review-usage').hidden = !draft.aiReport || draft.aiUsage === undefined;
+    if (draft.aiReport) {
+      const { limited, filtered, skipped } = draft.aiReport;
+      $('parse-notice').textContent = '这是 DeepSeek 提取的结果。请核对词头和释义，缺释义或不确定的词条默认不勾选。' +
+        (limited ? ' 本批已达到条目上限，可分批识别剩余资料。' : '') +
+        (filtered ? ` 已略过 ${filtered} 条格式不完整的候选。` : '') +
+        (skipped.length ? ' 以下资料未提取到可用词条：' + skipped.join('、') + '。' : '');
+    } else if (!editing && !draft.photoReport && draft.sources.some(isOldPhoto)) {
       $('parse-notice').textContent = '这份草稿使用旧版照片识别。请点「修改资料」，再点「下一步：核对词句」，即可用原图重识别。';
     } else if (draft.photoReport) {
       const { skipped, filtered } = draft.photoReport;
@@ -484,7 +583,7 @@ function StudyPackWorkspace(root) {
         (filtered ? ' 已略过 ' + filtered + ' 条无法核实的候选。' : '') +
         (skipped.length ? ' 以下图片未提取到可用词条：' + skipped.join('、') + '。' : '');
     }
-    $('review-rows').innerHTML = draft.rows.slice(page * 20, page * 20 + 20).map((row, i) => `<article class="review-row" data-row="${esc(row.id)}"><div class="row-top"><label class="check"><input type="checkbox" data-field="enabled" ${row.enabled ? 'checked' : ''} aria-label="选择第 ${page * 20 + i + 1} 条"><span class="row-number">${String(page * 20 + i + 1).padStart(2, '0')}</span></label><div class="kind-buttons"><button data-kind="word" aria-pressed="${row.kind === 'word'}">单词／短语</button><button data-kind="sentence" aria-pressed="${row.kind === 'sentence'}">句子</button></div><button class="text-button row-source" data-row-source="${esc(row.id)}">原文 ↗</button></div><div class="row-fields"><label>英文<textarea rows="2" lang="en" data-field="term" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条英文">${esc(row.term)}</textarea></label><label>中文释义／译文<textarea rows="2" data-field="meaning" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条中文">${esc(row.meaning)}</textarea></label></div>${row.origin === 'photo-corrected' ? '<p class="row-warning">词头按例句和词典推测，请确认后勾选。</p>' : row.origin === 'dictionary' ? '<p class="row-warning">释义由站内词典补充，请选定原文中的意思。</p>' : row.origin === 'photo' && !row.enabled ? '<p class="row-warning">识别结果待确认，请对照原文后勾选。</p>' : ''}<details><summary>例句与译文 ${row.example ? '· 已有例句' : '· 可选'}</summary><label class="field">英文例句<textarea rows="2" data-field="example" maxlength="1500" lang="en">${esc(row.example)}</textarea></label><label class="field">例句中文<textarea rows="2" data-field="exampleZh" maxlength="1500">${esc(row.exampleZh)}</textarea></label></details></article>`).join('');
+    $('review-rows').innerHTML = draft.rows.slice(page * 20, page * 20 + 20).map((row, i) => `<article class="review-row" data-row="${esc(row.id)}"><div class="row-top"><label class="check"><input type="checkbox" data-field="enabled" ${row.enabled ? 'checked' : ''} aria-label="选择第 ${page * 20 + i + 1} 条"><span class="row-number">${String(page * 20 + i + 1).padStart(2, '0')}</span></label><div class="kind-buttons"><button data-kind="word" aria-pressed="${row.kind === 'word'}">单词／短语</button><button data-kind="sentence" aria-pressed="${row.kind === 'sentence'}">句子</button></div><button class="text-button row-source" data-row-source="${esc(row.id)}">原文 ↗</button></div><div class="row-fields"><label>英文<textarea rows="2" lang="en" data-field="term" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条英文">${esc(row.term)}</textarea></label><label>中文释义／译文<textarea rows="2" data-field="meaning" maxlength="1500" aria-label="第 ${page * 20 + i + 1} 条中文">${esc(row.meaning)}</textarea></label></div>${row.origin === 'deepseek' && !row.enabled ? '<p class="row-warning">请核对原文并补齐释义后勾选。</p>' : row.origin === 'photo-corrected' ? '<p class="row-warning">词头按例句和词典推测，请确认后勾选。</p>' : row.origin === 'dictionary' ? '<p class="row-warning">释义由站内词典补充，请选定原文中的意思。</p>' : row.origin === 'photo' && !row.enabled ? '<p class="row-warning">识别结果待确认，请对照原文后勾选。</p>' : ''}<details><summary>例句与译文 ${row.example ? '· 已有例句' : '· 可选'}</summary><label class="field">英文例句<textarea rows="2" data-field="example" maxlength="1500" lang="en">${esc(row.example)}</textarea></label><label class="field">例句中文<textarea rows="2" data-field="exampleZh" maxlength="1500">${esc(row.exampleZh)}</textarea></label></details></article>`).join('');
     $('page-label').textContent = `${page + 1} / ${Math.max(1, Math.ceil(draft.rows.length / 20))} 页`;
     $('prev-page').disabled = page === 0; $('next-page').disabled = (page + 1) * 20 >= draft.rows.length;
   }
@@ -535,7 +634,7 @@ function StudyPackWorkspace(root) {
     const sources = pack.sources.filter(s => sourceIds.includes(s.id));
     $('source-title').textContent = row ? row.term.slice(0, 70) : sources[0]?.name || '原始资料';
     $('source-content').innerHTML = sources.map(s => {
-      const refs = row?.sources.filter(r => r.sourceId === s.id) || [];
+      const refs = row?.sources.filter(r => r.sourceId === s.id && r.excerpt) || [];
       return `<section class="source-section"><h3>${esc(s.name)}</h3>${refs.map(r => `<p class="source-excerpt">第 ${r.line} 行 · ${esc(r.excerpt)}</p>`).join('')}${s.image ? `<img class="source-image" src="${s.image}" alt="${esc(s.name)} 的原图">` : ''}<details ${s.image ? '' : 'open'}><summary class="hint">${s.image ? '查看识别文字（可能含误读）' : '查看完整原文'}</summary><pre class="source-text">${s.text.split('\n').map((line, i) => refs.some(r => r.line === i + 1) ? '<mark>' + esc(line) + '</mark>' : esc(line)).join('\n')}</pre></details></section>`;
     }).join('') || '<p class="muted">这条内容由你手动添加。</p>';
     $('source-dialog').showModal();
@@ -724,9 +823,17 @@ function StudyPackWorkspace(root) {
   $('drop-zone').addEventListener('drop', e => { e.preventDefault(); $('drop-zone').classList.remove('dragover'); addFiles([...e.dataTransfer.files]).catch(fail); });
   $('cancel-ocr').onclick = () => { ocrToken++; ocrCancel?.(); ocrWorker?.terminate(); notice('识别已停止，已经读出的文字仍会保留。'); };
   $('fill-example').onclick = async function(){
+ if (previewBusy) return;
  if($('import-text').value.trim()&&!await confirmAction('替换为示例文字？','当前粘贴框里的文字会被替换，已经上传的文件会保留。','填入示例'))return;
  $('import-text').value='address | 处理；解决 | We need to address this problem.\ncapture | 拍摄；记录 | I want to capture the light.\nWe need more time. | 我们需要更多时间。';renderSources();saveDraftSoon();
 };
+  $('recognition-method').onchange = () => {
+    draft.recognitionMethod = $('recognition-method').value;
+    renderRecognitionMethod();
+    renderSources();
+    saveDraftSoon();
+  };
+  $('deepseek-cancel').onclick = () => cloudRequest?.abort('cancelled');
   $('preview').onclick = preview; $('save-pack').onclick = savePack;
   $('back-to-sources').onclick=()=>{wizardStep(1);saveDraftSoon();notice('再次整理会按原始资料重新生成预览。已修改的词句，请先复制留存。');};
   $('review-forward').onclick=proceedToPlan;
@@ -796,6 +903,8 @@ function StudyPackWorkspace(root) {
     },
     leave() {
       lastView = undefined;
+      cloudRequest?.abort('navigation');
+      $('deepseek-key').value = '';
       if (view === 'practice' && active && !busy) persist().catch(fail);
       stopSpeech();
     },

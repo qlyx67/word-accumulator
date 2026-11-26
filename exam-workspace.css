@@ -19,7 +19,7 @@
 .pack-intro { margin: 9px 0 24px; }
 .source-picker { margin: 22px 0 32px; }
 .source-picker .field { max-width: 460px; }
-.source-picker select, .destination-panel select {
+.source-picker select, .destination-panel select, .recognition-panel select {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
@@ -56,3 +56,6 @@ select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .destination-panel .primary { margin-top: 20px; }
 .review-next { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 76px); }
 .view:not([hidden]) { animation: none; }
+
+.recognition-panel > .field { margin-top: 0; }
+.recognition-panel input { width: 100%; min-height: 44px; padding: 8px 12px; }

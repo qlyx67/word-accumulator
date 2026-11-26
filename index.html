@@ -45,8 +45,9 @@
 <script defer src="exam-store.js?v=1"></script>
 <script defer src="exam-ocr.js?v=3"></script>
 <script defer src="vocabulary-library.js?v=2"></script>
-<script defer src="exam-app.js?v=library2"></script>
-<script defer src="exam-entry.js?v=library1"></script>
+<script defer src="deepseek-import.js?v=1"></script>
+<script defer src="exam-app.js?v=deepseek1"></script>
+<script defer src="exam-entry.js?v=deepseek1"></script>
   <link rel="stylesheet" href="release-version.css?v=2.2.0">
 </head>
 <body class="personal-learning"><div class="studio-shell">
@@ -98,14 +99,28 @@
       <div class="page-heading"><p class="eyebrow" id="import-kicker">第 1 步 · 添加资料</p><h1 id="import-heading">先把要学的，放进来。</h1><p id="import-description" class="muted">一张词表截图，或几行双语句子，就能开始。</p></div>
       <div class="steps" aria-label="创建步骤"><span id="step-one" class="active" aria-current="step"><b>1</b> 添加资料</span><i></i><span id="step-two"><b>2</b> 核对词句</span><i></i><span id="step-three"><b>3</b> <span id="final-step-label">保存到词库</span></span></div>
       <div id="import-inputs" class="import-workspace">
+        <section class="panel input-panel recognition-panel" aria-label="识别方式">
+          <label class="field">识别方式
+            <select id="recognition-method">
+              <option value="local">本机识别 · 整齐词表 · 免费</option>
+              <option value="deepseek">DeepSeek · 双栏课本、排版复杂的资料</option>
+            </select>
+          </label>
+          <div id="deepseek-settings" hidden>
+            <label class="field">DeepSeek API Key<input id="deepseek-key" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" placeholder="粘贴你的 API Key"></label>
+            <p class="hint">使用 V4.1 Flash 1017。点击识别后，当前资料会直接发送给 DeepSeek，按你的 API 账户计费。Key 不会保存，资料中的私人信息请先裁掉。</p>
+            <button id="deepseek-cancel" class="text-button" hidden>停止等待</button>
+          </div>
+          <p id="deepseek-usage" class="hint" role="status" hidden></p>
+        </section>
         <div class="import-tabs" role="group" aria-label="选择导入方式"><button data-import-mode="image" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m6 16 4-4 4 4 3-2M8 8h.01"/></svg>上传图片 / 文件</button><button data-import-mode="text" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M5 10h14M5 15h9M5 20h6"/></svg>粘贴文字</button></div>
-        <section id="image-input-panel" class="panel input-panel"><label class="drop-zone" id="drop-zone"><span class="upload-illustration" aria-hidden="true"><span class="upload-sheet"><i></i><i></i><i></i></span><span class="upload-circle">↑</span></span><strong>添加词表截图或课本照片</strong><span>点击选择，或拖入文件 · 支持多图一起导入</span><span class="file-types">图片 / TXT / CSV / TSV / PDF / DOCX</span><input id="source-files" type="file" multiple accept="image/*,.txt,.csv,.tsv,.pdf,.docx"></label><div class="import-tip"><span>小提示</span><p>尽量拍正，让整页词表入镜。双栏课本会尝试分栏识别。每次最多 10 个文件，图片上限 12 MB，文档上限 18 MB。</p></div><p class="hint">图片在本机识别，首次需下载识别资源；可以随时停止。</p></section>
+        <section id="image-input-panel" class="panel input-panel"><label class="drop-zone" id="drop-zone"><span class="upload-illustration" aria-hidden="true"><span class="upload-sheet"><i></i><i></i><i></i></span><span class="upload-circle">↑</span></span><strong>添加词表截图或课本照片</strong><span>点击选择，或拖入文件 · 支持多图一起导入</span><span class="file-types">图片 / TXT / CSV / TSV / PDF / DOCX</span><input id="source-files" type="file" multiple accept="image/*,.txt,.csv,.tsv,.pdf,.docx"></label><div class="import-tip"><span>小提示</span><p>尽量拍正，让整页词表入镜。双栏课本会尝试分栏识别。每次最多 10 个文件，图片上限 12 MB，文档上限 18 MB。</p></div><p class="hint" id="image-recognition-note">本机识别首次需下载识别资源，可以随时停止。</p></section>
         <section id="text-input-panel" class="panel input-panel" hidden><div class="section-head small"><h2>复制进来，就从这里开始。</h2><button class="text-button" id="fill-example">帮我填一个示例</button></div><label class="sr-only" for="import-text">词表或双语句子</label><textarea id="import-text" rows="9" maxlength="120000" placeholder="address | 处理；解决 | We need to address this problem.&#10;capture | 拍摄；记录 | I want to capture the light.&#10;We need more time. | 我们需要更多时间。"></textarea><div class="import-tip"><span>这样写就行</span><p>一行一条，用竖线或制表符分隔。只有英文的单词会尝试补齐释义；句子的中文意思请一起放进来。</p></div></section>
         <div id="source-list" class="source-list"></div><div id="ocr-progress" class="ocr-progress" hidden><span class="working-dot"></span><p id="ocr-status" role="status"></p><progress id="ocr-meter" max="1" value="0"></progress><button class="text-button" id="cancel-ocr">停止识别</button></div><p id="import-summary" class="hint"></p>
       </div>
       <div id="preview-actions" class="wizard-actions"><span id="draft-status" class="hint">资料仅保存在当前设备</span><button class="primary" id="preview">下一步：核对词句 →</button></div>
       <section id="review-panel" hidden>
-        <div id="review-content"><div class="review-tools"><div><h2>这些是准备带进练习的内容</h2><p id="review-summary" class="muted"></p></div><button class="text-button" id="back-to-sources">← 修改资料</button></div><div class="review-tools"><label class="check"><input type="checkbox" id="select-all" checked> 全部选入学习</label><button class="text-button" id="add-row">＋ 手动加一条</button></div><p id="parse-notice" class="hint"></p><div id="review-rows"></div><div class="pager"><button id="prev-page">← 上一页</button><span id="page-label"></span><button id="next-page">下一页 →</button></div><div class="wizard-actions review-next"><span id="chosen-summary" class="hint"></span><button id="review-forward" class="primary">核对好了，下一步 →</button></div></div>
+        <div id="review-content"><div class="review-tools"><div><h2>这些是准备带进练习的内容</h2><p id="review-summary" class="muted"></p></div><button class="text-button" id="back-to-sources">← 修改资料</button></div><div class="review-tools"><label class="check"><input type="checkbox" id="select-all" checked> 全部选入学习</label><button class="text-button" id="add-row">＋ 手动加一条</button></div><p id="parse-notice" class="hint"></p><p id="deepseek-review-usage" class="hint" role="status" hidden></p><div id="review-rows"></div><div class="pager"><button id="prev-page">← 上一页</button><span id="page-label"></span><button id="next-page">下一页 →</button></div><div class="wizard-actions review-next"><span id="chosen-summary" class="hint"></span><button id="review-forward" class="primary">核对好了，下一步 →</button></div></div>
         <section id="destination-content" class="panel destination-panel" hidden>
           <div class="section-head small"><h2>保存到词库</h2><button class="text-button" id="back-to-material-review">← 返回核对</button></div>
           <p id="destination-summary" class="muted"></p>
@@ -377,5 +392,5 @@
 </dialog>
 <footer>词头按雅思词汇 PDF 的 22 个主题整理。站内释义与音标来自 <a href="https://github.com/skywind3000/ECDICT">ECDICT</a>（<a href="ECDICT-LICENSE.txt">MIT</a>），查词数据经 <a href="https://github.com/imfiiish/wordlists">Wordlists</a> 整理（<a href="dictionary/LICENSE.txt">MIT</a>）。部分例句来自 <a href="https://tatoeba.org/">Tatoeba</a>（<a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a>），示例词录音来自 <a href="dictionary/audio/LICENSE.txt">Endict</a>。星星保存在当前浏览器。</footer>
 </main></div>
-  <span class="release-version">版本 v2.2.1</span>
+  <span class="release-version">版本 v2.3.0</span>
 </body></html>

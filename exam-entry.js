@@ -17,7 +17,7 @@
     if (controller) return controller;
     const root = host.shadowRoot || host.attachShadow({ mode: 'open' });
     const template = document.getElementById('vocabulary-template');
-    const links = ['exam.css?v=welcome3', 'exam-workspace.css?v=2.2.0'].map(href => {
+    const links = ['exam.css?v=welcome3', 'exam-workspace.css?v=2.3.0'].map(href => {
       const style = document.createElement('link');
       style.rel = 'stylesheet';
       style.href = href;
