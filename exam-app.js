@@ -10,6 +10,20 @@ function StudyPackWorkspace(root) {
   let packs = [], active, draft, editing, page = 0, view = 'home', archived = false, busy = false;
   let noticeTimer, draftTimer, draftWrites = Promise.resolve(), ocrWorker, ocrCancel, ocrToken = 0, ocrBusy = false, previewBusy = false;
   let cloudRequest;
+  // Keep credentials outside the learning backup's word-accumulator.* namespace.
+  const deepSeekKeyStorage = 'word-accumulator:deepseek-api-key';
+  const recognitionStorage = 'word-accumulator:recognition-method';
+
+  function readSetting(key) {
+    try { return localStorage.getItem(key) || ''; } catch { return ''; }
+  }
+  function writeSetting(key, value) {
+    try {
+      if (value) localStorage.setItem(key, value);
+      else localStorage.removeItem(key);
+      return true;
+    } catch { return false; }
+  }
   let accent = 'en-US';
   const unfinished = p => p.session && p.session.index < p.session.tasks.length;
   const defaultDate = () => C.day(Date.now() + 7 * 86400000);
@@ -77,7 +91,8 @@ function StudyPackWorkspace(root) {
  $('import-text').value = draft.text; $('pack-name').value = draft.name; $('exam-date').value = draft.examDate;
  root.querySelectorAll('[data-minutes]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.minutes)===draft.minutes));
  root.querySelectorAll('[name=pack-mode]').forEach(e=>{e.checked=draft.modes.includes(e.value);e.disabled=false;e.closest('label').classList.remove('unavailable');});
- $('recognition-method').value = draft.recognitionMethod === 'deepseek' ? 'deepseek' : 'local';
+ const method = draft.recognitionMethod || readSetting(recognitionStorage);
+ $('recognition-method').value = method === 'deepseek' ? 'deepseek' : 'local';
  renderRecognitionMethod();
  renderDeepSeekUsage(draft.aiUsage);
  setImportMode(draft.importMode || (draft.text?'text':'image')); renderSources();
@@ -430,6 +445,13 @@ function StudyPackWorkspace(root) {
   }
   const usesDeepSeek = () => $('recognition-method').value === 'deepseek';
 
+  function renderDeepSeekKeyStatus() {
+    const hasSavedKey = Boolean(readSetting(deepSeekKeyStorage));
+    $('deepseek-key').placeholder = hasSavedKey ? '已保存，留空继续使用' : '粘贴你的 API Key';
+    $('deepseek-key-status').textContent = hasSavedKey ? '已保存在此浏览器。填入新 Key 成功调用后会替换。' : '';
+    $('deepseek-forget').hidden = !hasSavedKey;
+  }
+
   function renderRecognitionMethod() {
     const cloud = usesDeepSeek();
     $('deepseek-settings').hidden = !cloud;
@@ -437,6 +459,7 @@ function StudyPackWorkspace(root) {
       '本机识别首次需下载识别资源，可以随时停止。';
     $('preview').textContent = cloud ? '用 DeepSeek 识别' : '下一步：核对词句 →';
     if (!cloud) $('deepseek-key').value = '';
+    renderDeepSeekKeyStatus();
   }
 
   function renderDeepSeekUsage(usage) {
@@ -451,7 +474,8 @@ function StudyPackWorkspace(root) {
   }
 
   async function previewWithDeepSeek() {
-    const key = $('deepseek-key').value.trim();
+    const typedKey = $('deepseek-key').value.trim();
+    const key = typedKey || readSetting(deepSeekKeyStorage);
     if (!key) {
       $('deepseek-key').focus();
       return notice('请先填写你的 DeepSeek API Key。');
@@ -467,7 +491,7 @@ function StudyPackWorkspace(root) {
     const timer = setTimeout(() => controller.abort('timeout'), 150000);
     cloudRequest = controller;
     previewBusy = true;
-    $('deepseek-key').value = '';
+    $('deepseek-forget').disabled = true;
     $('preview').disabled = $('recognition-method').disabled = $('deepseek-key').disabled = true;
     $('import-text').readOnly = true;
     $('deepseek-cancel').hidden = false;
@@ -477,6 +501,7 @@ function StudyPackWorkspace(root) {
     try {
       const content = await DeepSeekImport.request(readable, key, controller.signal, usage => {
         if (controller.signal.aborted || draft !== work) return;
+        if (typedKey && writeSetting(deepSeekKeyStorage, typedKey)) $('deepseek-key').value = '';
         work.aiUsage = usage;
         renderDeepSeekUsage(usage);
         saveDraftSoon();
@@ -507,6 +532,7 @@ function StudyPackWorkspace(root) {
       $('preview').disabled = $('recognition-method').disabled = $('deepseek-key').disabled = false;
       $('import-text').readOnly = false;
       $('deepseek-cancel').hidden = true;
+      $('deepseek-forget').disabled = false;
       renderRecognitionMethod();
     }
   }
@@ -829,10 +855,20 @@ function StudyPackWorkspace(root) {
 };
   $('recognition-method').onchange = () => {
     draft.recognitionMethod = $('recognition-method').value;
+    writeSetting(recognitionStorage, draft.recognitionMethod);
     renderRecognitionMethod();
     renderSources();
     saveDraftSoon();
   };
+  $('deepseek-forget').onclick = () => {
+    if (!writeSetting(deepSeekKeyStorage, '')) return notice('无法清除 Key，请检查浏览器存储权限。');
+    $('deepseek-key').value = '';
+    renderDeepSeekKeyStatus();
+    notice('已清除保存在此浏览器的 DeepSeek API Key。');
+  };
+  window.addEventListener('storage', event => {
+    if (event.key === deepSeekKeyStorage || event.key === null) renderDeepSeekKeyStatus();
+  });
   $('deepseek-cancel').onclick = () => cloudRequest?.abort('cancelled');
   $('preview').onclick = preview; $('save-pack').onclick = savePack;
   $('back-to-sources').onclick=()=>{wizardStep(1);saveDraftSoon();notice('再次整理会按原始资料重新生成预览。已修改的词句，请先复制留存。');};
