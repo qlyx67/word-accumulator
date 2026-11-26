@@ -20,7 +20,9 @@ for (const word of words) {
 }
 const scopes = { match: new Set(), spell: new Set() };
 const scopeInputs = new Map();
-const progressKey = deckStorageKey('word-accumulator.progress.v1');
+const progressBase = 'word-accumulator.progress.v1';
+const progressKey = deckStorageKey(progressBase);
+const sourceProgressKeys = new Set(selectedDeckIds.map(id => storageKeyForDeck(progressBase, id)));
 const filter = byId('word-filter');
 const filterOptions = {
   browse: [['all', '全部词汇'], ['unmastered', '未掌握'], ['mastered', '已掌握'], ['wrong', '有错题记录']],
@@ -30,14 +32,25 @@ const filterOptions = {
 const filters = { browse: 'all', match: 'all', spell: 'all' };
 let records = readProgress();
 
-function readProgress() {
+function readProgressFile(key = progressKey) {
   try {
-    const stored = JSON.parse(localStorage.getItem(progressKey));
+    const stored = JSON.parse(localStorage.getItem(key));
     return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
   } catch {
     byId('save-note').textContent = '浏览器无法读取进度，当前记录可能只在这一页有效。';
     return {};
   }
+}
+
+function readProgress() {
+  if (!studyOrigins.size) return readProgressFile();
+  const stored = new Map(selectedDeckIds.map(id => [id, readProgressFile(storageKeyForDeck(progressBase, id))]));
+  const combined = Object.create(null);
+  for (const [key, { deckId, originalKey }] of studyOrigins) {
+    const entry = stored.get(deckId)[originalKey];
+    if (entry) combined[key] = entry;
+  }
+  return combined;
 }
 
 let activeWord;
@@ -125,7 +138,7 @@ function button(label, action) {
 }
 
 function wordKey(word) {
-  return word.topic + ':' + word.term;
+  return combinedWordKeys.get(word) || word.topic + ':' + word.term;
 }
 
 function earned(word) {
@@ -173,17 +186,22 @@ function updateProgress() {
 }
 
 function recordAttempt(entries, skill, wrong, star = false) {
-  const latest = readProgress();
+  const updates = new Map();
   for (const word of entries) {
     const key = wordKey(word);
-    const record = { ...records[key], ...latest[key], [skill + 'Tried']: true };
+    const origin = studyOrigins.get(key);
+    const target = origin ? storageKeyForDeck(progressBase, origin.deckId) : progressKey;
+    if (!updates.has(target)) updates.set(target, readProgressFile(target));
+    const stored = updates.get(target);
+    const entryKey = origin?.originalKey ?? key;
+    const record = { ...records[key], ...stored[entryKey], [skill + 'Tried']: true };
     if (wrong) record[skill + 'Wrong'] = true;
     if (star) record[skill] = true;
-    latest[key] = record;
+    stored[entryKey] = record;
+    records[key] = record;
   }
-  records = { ...records, ...latest };
   try {
-    localStorage.setItem(progressKey, JSON.stringify(records));
+    for (const [key, stored] of updates) localStorage.setItem(key, JSON.stringify(stored));
   } catch {
     byId('save-note').textContent = '浏览器拒绝保存进度，刷新或关闭页面可能会丢失本次记录。';
   }
@@ -530,7 +548,7 @@ for (const control of document.querySelectorAll('[data-review]')) {
 }
 
 window.addEventListener('storage', event => {
-  if (event.key === progressKey || event.key === null) {
+  if (event.key === progressKey || sourceProgressKeys.has(event.key) || event.key === null) {
     records = readProgress();
     updateProgress();
     if (mode === 'browse') renderList();

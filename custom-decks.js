@@ -9,31 +9,90 @@ const originalWords = new Map();
 for (const word of words) if (!originalWords.has(word.term.toLowerCase())) originalWords.set(word.term.toLowerCase(), word);
 let decks = [];
 let activeDeck;
+const combinedPrefix = 'combined:';
+const studyOrigins = new Map();
+const combinedWordKeys = new WeakMap();
+let selectedDeckIds = [''];
 try {
   const saved = JSON.parse(localStorage.getItem(deckListKey));
   if (Array.isArray(saved)) decks = saved.filter(item => item?.id && item.name && item.words?.length);
 } catch {}
 try { repairUnit6Deck(decks, localStorage, deckListKey); } catch {}
 try {
-  activeDeck = decks.find(item => item.id === localStorage.getItem(deckSelectionKey));
+  const selection = localStorage.getItem(deckSelectionKey) || '';
+  if (selection.startsWith(combinedPrefix)) {
+    const parsed = JSON.parse(selection.slice(combinedPrefix.length));
+    if (Array.isArray(parsed)) {
+      const valid = new Set(['', ...decks.map(deck => deck.id)]);
+      const ids = [...new Set(parsed.filter(id => valid.has(id)))].sort();
+      if (ids.length) selectedDeckIds = ids;
+    }
+  } else if (decks.some(deck => deck.id === selection)) {
+    selectedDeckIds = [selection];
+  }
 } catch {}
+
+if (selectedDeckIds.length > 1) {
+  const libraries = [{ id: '', name: '雅思词汇', words: builtInWords }, ...decks];
+  const combined = libraries.filter(deck => selectedDeckIds.includes(deck.id));
+  const entries = combined.flatMap(deck => deck.words.map(word => {
+    const originalKey = word.topic + ':' + word.term;
+    const key = JSON.stringify([deck.id, originalKey]);
+    const entry = { ...word, topic: word.topic === deck.name ? deck.name : deck.name + ' · ' + word.topic };
+    combinedWordKeys.set(entry, key);
+    studyOrigins.set(key, { deckId: deck.id, originalKey });
+    return entry;
+  }));
+  activeDeck = {
+    id: combinedPrefix + JSON.stringify(selectedDeckIds),
+    name: '合练 ' + combined.length + ' 套词库',
+    words: entries,
+  };
+} else {
+  activeDeck = decks.find(deck => deck.id === selectedDeckIds[0]);
+}
 if (activeDeck) words.splice(0, words.length, ...activeDeck.words);
 
+function storageKeyForDeck(key, id) {
+  return id ? key + '.' + id : key;
+}
+
 function deckStorageKey(key) {
-  return activeDeck ? key + '.' + activeDeck.id : key;
+  return storageKeyForDeck(key, activeDeck?.id);
+}
+
+function saveDeckSelection(ids) {
+  if (!ids.length) return;
+  const ordered = [...new Set(ids)].sort();
+  const value = ordered.length === 1 ? ordered[0] : combinedPrefix + JSON.stringify(ordered);
+  try {
+    if ((localStorage.getItem(deckSelectionKey) || '') === value) return;
+    localStorage.setItem(deckSelectionKey, value);
+    location.reload();
+  } catch {
+    deckSelect.value = activeDeck?.id || '';
+    document.getElementById('save-note').textContent = '当前浏览器无法保存词库切换。';
+  }
 }
 
 function buildDeckQuestions(entries) {
   const known = entries.filter(word => word.meaning);
   if (known.length < 4) return [];
-  return known.flatMap(word => {
+  return known.flatMap((word, index) => {
     if (!word.example) return [];
     const escaped = word.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp('\\b' + escaped + '\\b', 'gi');
     const matches = word.example.match(pattern);
     if (matches?.length !== 1) return [];
-    const decoys = known.filter(item => item !== word && item.meaning !== word.meaning)
-      .map(item => [item.term, item.meaning]);
+    const decoys = [];
+    const seen = new Set([word.term.toLowerCase()]);
+    for (let offset = 1; offset < known.length && decoys.length < 24; offset++) {
+      const candidate = known[(index + offset) % known.length];
+      const term = candidate.term.toLowerCase();
+      if (seen.has(term) || candidate.meaning === word.meaning) continue;
+      seen.add(term);
+      decoys.push([candidate.term, candidate.meaning]);
+    }
     if (decoys.length < 3) return [];
     return [{ id: word.term, sentence: word.example.replace(pattern, '___'), part: word.pos, reason: word.example, meaning: word.meaning, decoys }];
   });
@@ -42,16 +101,13 @@ function buildDeckQuestions(entries) {
 const deckSelect = deckField('select');
 deckSelect.add(new Option('内置 · 雅思词汇', ''));
 for (const deck of decks) deckSelect.add(new Option(deck.name + ' · ' + deck.words.length + ' 词', deck.id));
+if (selectedDeckIds.length > 1) {
+  const summary = new Option(activeDeck.name + ' · ' + words.length + ' 词', activeDeck.id);
+  summary.disabled = true;
+  deckSelect.add(summary);
+}
 deckSelect.value = activeDeck?.id || '';
-deckSelect.addEventListener('change', () => {
-  try {
-    localStorage.setItem(deckSelectionKey, deckSelect.value);
-    location.reload();
-  } catch {
-    deckSelect.value = activeDeck?.id || '';
-    document.getElementById('save-note').textContent = '当前浏览器无法保存词库切换。';
-  }
-});
+deckSelect.addEventListener('change', () => saveDeckSelection([deckSelect.value]));
 
 const posPattern = /^(?:(?:n|v|vi|vt|a|ad|adj|adv|pron|prep|conj|interj|det|num|phr)\.?|noun|verb|adjective|adverb|preposition|conjunction|pronoun|determiner|phrase|interjection|名词|动词|形容词|副词|代词|介词|连词|感叹词|短语|数词)(?:\s*[/、]\s*.+)?$/i;
 const termPattern = /^[A-Za-z]+(?:[ '\u2019-][A-Za-z]+)*$/;

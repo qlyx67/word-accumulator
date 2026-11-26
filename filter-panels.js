@@ -13,7 +13,7 @@ const topicCounts = new Map([...groupsByTopic].map(([name, batches]) => [
   name, batches.reduce((count, batch) => count + batch.words.length, 0)
 ]));
 
-function buildFilterPanel(select, title, detailForOption = () => '') {
+function buildFilterPanel(select, title, detailForOption = () => '', multi = null) {
   const label = select.labels[0];
   if (label?.contains(select)) {
     const field = document.createElement('div');
@@ -61,6 +61,19 @@ function buildFilterPanel(select, title, detailForOption = () => '') {
   const options = document.createElement('div');
   options.className = 'filter-panel-options';
   panel.append(heading, search, options);
+  const picks = new Set();
+  let apply;
+  if (multi) {
+    heading.textContent = '勾选一个或多个词库';
+    apply = document.createElement('button');
+    apply.type = 'button';
+    apply.className = 'primary';
+    apply.addEventListener('click', () => {
+      close(true);
+      multi.save([...picks]);
+    });
+    panel.append(apply);
+  }
   wrapper.append(trigger, panel);
   select.after(wrapper);
   select.hidden = true;
@@ -88,18 +101,26 @@ function buildFilterPanel(select, title, detailForOption = () => '') {
     panel.style.setProperty('--panel-height', Math.max(120, Math.min(362, opensUp ? above : below)) + 'px');
   }
 
+  function syncApply() {
+    if (!apply) return;
+    apply.disabled = !picks.size;
+    apply.textContent = picks.size ? '应用选择 · ' + picks.size + ' 套词库' : '请至少选一个词库';
+  }
+
   function renderOptions() {
     const query = search.value.trim().toLocaleLowerCase();
     const rows = [];
+    syncApply();
     for (const option of select.options) {
       if (option.disabled || !option.label.toLocaleLowerCase().includes(query)) continue;
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'filter-panel-option';
-      row.setAttribute('aria-pressed', String(option.selected));
+      const checked = multi ? picks.has(option.value) : option.selected;
+      row.setAttribute('aria-pressed', String(checked));
       const check = document.createElement('span');
       check.className = 'filter-panel-check';
-      check.textContent = option.selected ? '✓' : '';
+      check.textContent = checked ? '✓' : '';
       check.setAttribute('aria-hidden', 'true');
       const text = document.createElement('span');
       text.className = 'filter-panel-option-text';
@@ -114,6 +135,15 @@ function buildFilterPanel(select, title, detailForOption = () => '') {
       }
       row.append(check, text);
       row.addEventListener('click', () => {
+        if (multi) {
+          if (picks.has(option.value)) picks.delete(option.value);
+          else picks.add(option.value);
+          const included = picks.has(option.value);
+          row.setAttribute('aria-pressed', String(included));
+          check.textContent = included ? '✓' : '';
+          syncApply();
+          return;
+        }
         close(true);
         if (select.value !== option.value) {
           select.value = option.value;
@@ -134,6 +164,8 @@ function buildFilterPanel(select, title, detailForOption = () => '') {
 
   function open(useSearch = false) {
     search.value = '';
+    picks.clear();
+    if (multi) multi.selected.forEach(id => picks.add(id));
     search.hidden = select.options.length < 8;
     renderOptions();
     placePanel();
@@ -189,7 +221,8 @@ function buildFilterPanel(select, title, detailForOption = () => '') {
 
 buildFilterPanel(byId('topic'), '主题范围', option => (topicCounts.get(option.value) ?? words.length).toLocaleString() + ' 词');
 buildFilterPanel(byId('word-filter'), '练习筛选', option => filterDetails[option.value]);
-buildFilterPanel(byId('deck-select'), '学习词库', option => option.value ? '自建词库' : '内置词库');
+buildFilterPanel(byId('deck-select'), '学习词库', option => option.value ? '自建词库' : '内置词库',
+  { selected: selectedDeckIds, save: saveDeckSelection });
 buildFilterPanel(byId('map-group'), '学习分组', option => {
   const group = studyGroups[Number(option.value)];
   return group ? group.words.length + ' 词' : '';
