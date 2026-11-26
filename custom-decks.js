@@ -12,6 +12,9 @@ let activeDeck;
 try {
   const saved = JSON.parse(localStorage.getItem(deckListKey));
   if (Array.isArray(saved)) decks = saved.filter(item => item?.id && item.name && item.words?.length);
+} catch {}
+try { repairUnit6Deck(decks, localStorage, deckListKey); } catch {}
+try {
   activeDeck = decks.find(item => item.id === localStorage.getItem(deckSelectionKey));
 } catch {}
 if (activeDeck) words.splice(0, words.length, ...activeDeck.words);
